@@ -1,0 +1,117 @@
+# Project Specification – **Workplan Analysis** (Work‑plan Feasibility Checker)
+
+> **Revision 2 — 30 May 2025**  
+> Changes: fixed duration granularity (¼‑day, ½‑day, 1‑day) and introduced **Projects** so planners can keep multiple work‑plans and resource sets side‑by‑side, re‑run analyses, and compare dashboards.
+
+---
+## 1 Purpose and Scope
+* Evaluate whether a quarterly Miradi work‑plan can be delivered by the available staff resources.
+* Provide a clear **Feasible / Infeasible** verdict plus utilisation metrics.
+* Support multiple **Projects**, each holding:  
+  1. A work‑plan CSV (immutable once imported).  
+  2. A mutable resource‑capacity table (editable inside the app).  
+  3. A history of **Analyses** (timestamped solver runs) with their dashboards.
+
+The application is **not** a day‑to‑day scheduler; any internal schedule produced by the solver is for proof only and hidden unless exported for diagnostics.
+
+## 2 Input Data
+### 2.1 Work‑plan CSV (per project)
+```
+ActivityID,ActivityName,Quarter,Frequency,Duration,RangerCoordinator,SeniorRanger,Ranger
+```
+* **Duration** ∈ {0.25, 0.5, 1} representing 2 h, 4 h, 8 h.
+
+### 2.2 Resource‑capacity (per analysis)
+Editable grid in UI or YAML import/export:
+```yaml
+RangerCoordinator: 1
+SeniorRanger: 2
+Ranger: 5
+slots_per_day: 4        # quarter‑day (2‑h) slots
+public_holidays: []
+```
+
+## 3 Core Concepts
+| Term | Meaning |
+|------|---------|
+| **Project** | Container for one work‑plan and evolving resource scenarios |
+| **Analysis** | One solver run using a specific resource set |
+| **Occurrence** | Single execution of an activity (after expanding frequency) |
+| **Slot** | ¼‑day = 2 h; constants `SLOTS_PER_DAY = 4`, `HOURS_PER_SLOT = 2` |
+| **Capacity** | Number of simultaneous staff of a role available in a slot |
+
+## 4 User Workflow
+1. **Project → New…** → choose CSV → project appears in sidebar.  
+2. **Resources** tab – view default capacities; edit numbers; *Save Resource Set* (versioned).  
+3. **Run Analysis** *(F5)* – background CP‑SAT run.  
+4. **Dashboard** shows:  
+   * Verdict badge ✅ / ❌.  
+   * Utilisation gauges per role.  
+   * Busiest & slackest days.  
+   * If infeasible: list of days/slots over capacity + total head‑count shortfall per role.  
+5. Repeat steps 2–4 with alternative resources; each analysis stays in the **Analyses** list.  
+6. **Export Report…** → PDF or CSV summary of selected analysis.
+
+## 5 Functional Requirements
+* **F‑1** Validate CSV; duration must be 0.25, 0.5, or 1; frequency ≥ 1.  
+* **F‑2** Expand each activity into `frequency` occurrences.  
+* **F‑3** Build CP‑SAT model: Boolean `start[job,slot]` variables across 60 days × 4 slots = 240 slots.  
+* **F‑4** Hard constraints: each job scheduled exactly once; role capacities per slot not exceeded.  
+* **F‑5** Feasibility search (no objective). If infeasible, add non‑negative slack vars `overload[role,slot]` and minimise total slack to diagnose shortages.  
+* **F‑6** Compute role utilisation:  
+
+  util_r = Σ_occ demand_r·duration·4 / (capacity_r·60·4) × 100 %  
+
+* **F‑7** Persist analyses JSON under project folder with solver stats for reproducibility.
+
+## 6 Non‑functional Requirements
+* Solve typical instance (< 400 occurrences, 4 roles) < 5 s.  
+* GUI thread‑safe; solver runs in `QThread` emitting progress.  
+* All data stored in `~/.workplan_analysis/` using per‑project sub‑dirs.
+
+## 7 Solver Design Details
+* **Slot index**: `slot = day*4 + quarter_index` where quarter_index ∈ {0,1,2,3}.  
+* Stage 1: feasibility search; 30‑second limit (configurable).  
+* Stage 2: minimal overload model if infeasible; returns per‑role shortage and list of overloaded slots.
+
+## 8 GUI Wire‑frame (PyQt6)
+```
+MainWindow
+├─ LeftDock: ProjectTree (projects ▸ analyses)
+├─ CentralTabWidget
+│  ├─ tabPlan        QTableView (read‑only)
+│  ├─ tabResources   Editable capacity grid + Save button
+│  ├─ tabDashboard   QStackedWidget
+│  │                 ├─ pageWaiting (spinner)
+│  │                 └─ pageResults (QWidget)
+│  │                       ├─ QLabel verdict
+│  │                       ├─ QTableView utilisation
+│  │                       ├─ FigureCanvas bar chart
+│  │                       └─ QTableView overload list
+│  └─ tabAnalyses    QListWidget (all runs)
+└─ StatusBar
+```
+
+## 9 Tech Stack
+Python 3.12 · PyQt6 · pandas · OR‑Tools 9.x · matplotlib/pyqtgraph · pytest/pytest‑qt.
+
+## 10 Packaging & CI
+Conda environment, PyInstaller universal2 for macOS, single‑exe for Windows; GitHub Actions builds & uploads.
+
+## 11 Sample Output
+```json
+{
+  "feasible": false,
+  "utilisation": {
+    "RangerCoordinator": 125.0,
+    "SeniorRanger": 97.3,
+    "Ranger": 81.5
+  },
+  "overloads": [
+    {"date": "2025-03-12", "slot": "PM", "role": "RangerCoordinator", "extra_needed": 1}
+  ]
+}
+```
+
+## 12 Product Name
+**Workplan Analysis**

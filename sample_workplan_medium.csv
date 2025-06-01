@@ -1,0 +1,21 @@
+ActivityID,ActivityName,Quarter,Frequency,Duration,RangerCoordinator,SeniorRanger,Ranger
+M01,Track Grading,2025-Q3,2,0.5,1,2,4
+M02,Mangrove Clean-up,2025-Q3,2,0.5,1,2,1
+M03,Erosion Control,2025-Q3,4,0.25,0,2,1
+M04,Pest Fish Removal,2025-Q3,2,0.25,1,0,5
+M05,Ranger Training Session,2025-Q3,4,0.5,1,0,2
+M06,Boat Patrol,2025-Q3,2,0.5,1,0,2
+M07,Visitor Engagement,2025-Q3,3,1.0,0,0,5
+M08,Tree Planting,2025-Q3,5,1.0,1,0,3
+M09,Cyclone Readiness,2025-Q3,3,1.0,1,1,3
+M10,Fence Repair,2025-Q3,5,1.0,1,1,4
+M11,Firearm Safety Drill,2025-Q3,5,0.5,1,0,2
+M12,Firebreak Inspection,2025-Q3,5,0.25,1,0,5
+M13,Weed Control Patrol,2025-Q3,6,1.0,0,2,5
+M14,Drone Survey,2025-Q3,4,1.0,0,0,2
+M15,Vehicle Servicing,2025-Q3,4,0.5,1,2,3
+M16,Seed Collection,2025-Q3,3,0.25,0,0,2
+M17,Feral Animal Monitoring,2025-Q3,5,0.5,0,2,1
+M18,Water Quality Monitoring,2025-Q3,6,1.0,0,1,2
+M19,Wetland Mapping,2025-Q3,6,0.25,1,1,5
+M20,Bird Survey,2025-Q3,5,1.0,0,0,2

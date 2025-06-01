@@ -1,0 +1,31 @@
+ActivityID,ActivityName,Quarter,Frequency,Duration,RangerCoordinator,SeniorRanger,Ranger
+A01,Weed Control Patrol,2025-Q3,7,0.25,0,2,3
+A02,Feral Animal Monitoring,2025-Q3,3,0.25,0,2,1
+A03,Cultural Site Maintenance,2025-Q3,7,1.0,0,2,4
+A04,Firebreak Inspection,2025-Q3,2,0.25,0,0,2
+A05,Asset Inspection,2025-Q3,6,1.0,0,2,2
+A06,Track Grading,2025-Q3,7,1.0,1,0,4
+A07,Visitor Engagement,2025-Q3,6,0.5,0,0,4
+A08,Water Quality Monitoring,2025-Q3,4,0.5,0,0,3
+A09,Fence Repair,2025-Q3,2,0.25,1,0,3
+A10,Ranger Training Session,2025-Q3,8,0.5,1,0,4
+A11,School Visit,2025-Q3,6,0.25,1,0,5
+A12,Drone Survey,2025-Q3,4,1.0,1,2,2
+A13,Satellite Collar Maintenance,2025-Q3,7,0.25,0,2,2
+A14,Camera Trap Check,2025-Q3,8,0.5,0,0,1
+A15,Mangrove Clean‑up,2025-Q3,5,0.5,1,2,3
+A16,Firearm Safety Drill,2025-Q3,3,0.5,1,0,3
+A17,Boat Patrol,2025-Q3,7,1.0,1,2,2
+A18,Vehicle Servicing,2025-Q3,6,1.0,0,0,4
+A19,Seed Collection,2025-Q3,5,0.5,0,2,3
+A20,Tree Planting,2025-Q3,8,0.25,0,0,3
+A21,Bird Survey,2025-Q3,5,0.5,0,0,5
+A22,Pest Fish Removal,2025-Q3,7,0.5,0,2,4
+A23,Wetland Mapping,2025-Q3,5,1.0,1,0,3
+A24,Erosion Control,2025-Q3,3,0.25,1,2,5
+A25,Weather Station Maintenance,2025-Q3,5,1.0,1,1,2
+A26,Cyclone Readiness,2025-Q3,3,1.0,1,0,1
+A27,Health & Safety Audit,2025-Q3,8,0.25,0,2,2
+A28,Incident Reporting Workshop,2025-Q3,8,1.0,1,2,1
+A29,Budget Review,2025-Q3,5,0.5,1,2,3
+A30,Community Consultation Meeting,2025-Q3,6,0.25,0,2,5
