@@ -124,3 +124,7 @@ saved_projects/
 
 # Distribution builds (keep the Python distribution)
 # dist/ - commented out to keep our Python distribution
+
+# Allow Python distribution
+!dist/WorkplanAnalysis-Python/
+!dist/WorkplanAnalysis-Python.zip

@@ -1,0 +1,11 @@
+ActivityID,ActivityName,Quarter,Frequency,Duration,RangerCoordinator,SeniorRanger,Ranger
+S01,Weed Control Patrol,2025-Q3,4,0.25,1,2,1
+S02,Feral Animal Monitoring,2025-Q3,2,1.0,0,1,1
+S03,Cultural Site Maintenance,2025-Q3,3,0.25,0,1,4
+S04,Firebreak Inspection,2025-Q3,2,0.25,0,2,4
+S05,Visitor Engagement,2025-Q3,2,1.0,0,0,1
+S06,Water Quality Monitoring,2025-Q3,5,0.25,0,0,2
+S07,Fence Repair,2025-Q3,4,0.5,0,2,1
+S08,Ranger Training Session,2025-Q3,4,1.0,0,0,2
+S09,Drone Survey,2025-Q3,4,0.25,0,2,1
+S10,Tree Planting,2025-Q3,3,0.5,1,1,4

@@ -1,0 +1,6 @@
+RangerCoordinator: 1
+SeniorRanger: 2
+Ranger: 5
+slots_per_day: 4
+public_holidays:
+- '2025-08-25'
