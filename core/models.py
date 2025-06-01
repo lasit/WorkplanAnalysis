@@ -246,6 +246,52 @@ class Project:
                         print(f"Warning: Could not load project from {project_dir}: {e}")
         
         return projects
+    
+    def duplicate(self, new_name: str, include_analyses: bool = False) -> 'Project':
+        """Create a duplicate of this project with a new name.
+        
+        Args:
+            new_name: Name for the new project
+            include_analyses: Whether to include analysis history (default: False)
+            
+        Returns:
+            New Project instance
+            
+        Raises:
+            ValueError: If project with new_name already exists
+        """
+        import shutil
+        from datetime import datetime
+        
+        # Check if project with new name already exists
+        app_dir = Path.cwd()
+        new_project_dir = app_dir / "projects" / new_name
+        if new_project_dir.exists():
+            raise ValueError(f"Project '{new_name}' already exists")
+        
+        # Create new project directory
+        new_project_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copy all files from current project
+        for file_path in self.project_dir.iterdir():
+            if file_path.is_file():
+                shutil.copy2(file_path, new_project_dir / file_path.name)
+        
+        # Load the duplicated project
+        duplicated_project = Project.load_project(new_project_dir)
+        
+        # Update project name and paths
+        duplicated_project.name = new_name
+        duplicated_project.workplan_path = new_project_dir / "workplan.csv"
+        
+        # Clear analyses if not requested
+        if not include_analyses:
+            duplicated_project.analyses = []
+        
+        # Save the updated project
+        duplicated_project.save_project()
+        
+        return duplicated_project
 
 
 @dataclass

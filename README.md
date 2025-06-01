@@ -105,6 +105,23 @@ For Windows users, simply double-click `start_app.bat` to launch the application
    - Save project metadata to `projects/{project_name}/project.json`
 5. The project will appear in the sidebar
 
+### Duplicating a Project
+
+1. **Right-click** on any project in the sidebar
+2. Select **"Duplicate Project..."**
+3. Enter a name for the duplicated project
+4. Choose whether to include analysis history:
+   - **Yes**: Copy all previous analyses to the new project
+   - **No**: Start with a clean project (recommended for testing different scenarios)
+5. The duplicated project will be created with all files copied
+6. The new project will be automatically selected
+
+**Use Cases for Duplication:**
+- Test different resource configurations
+- Create "what-if" scenarios
+- Backup a project before major changes
+- Share a clean version without analysis history
+
 ### Configuring Resources
 
 1. Switch to the **Resources** tab

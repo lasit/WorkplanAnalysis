@@ -157,6 +157,7 @@ class MainWindow(QMainWindow):
         # Project tree signals
         self.project_tree.project_selected.connect(self.on_project_selected)
         self.project_tree.analysis_selected.connect(self.on_analysis_selected)
+        self.project_tree.project_duplicated.connect(self.on_project_duplicated)
         
         # Tab signals
         self.resources_tab.resources_changed.connect(self.on_resources_changed)
@@ -505,3 +506,14 @@ class MainWindow(QMainWindow):
         
         # Clean up worker
         self.solver_worker = None
+    
+    def on_project_duplicated(self, duplicated_project: Project):
+        """Handle project duplication."""
+        # Add the duplicated project to our projects list
+        self.projects.append(duplicated_project)
+        
+        # Set it as the current project
+        self.set_current_project(duplicated_project)
+        
+        # Update status bar
+        self.status_bar.showMessage(f"Project duplicated successfully: {duplicated_project.name}")

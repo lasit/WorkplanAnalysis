@@ -1,7 +1,7 @@
 """Project tree widget for displaying projects and analyses."""
 
 from PyQt6.QtWidgets import (
-    QTreeWidget, QTreeWidgetItem, QMenu, QMessageBox
+    QTreeWidget, QTreeWidgetItem, QMenu, QMessageBox, QInputDialog, QCheckBox, QVBoxLayout, QDialog, QDialogButtonBox, QLabel
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
@@ -16,6 +16,7 @@ class ProjectTreeWidget(QTreeWidget):
     # Signals
     project_selected = pyqtSignal(object)  # Project
     analysis_selected = pyqtSignal(object)  # AnalysisResult
+    project_duplicated = pyqtSignal(object)  # Project (new duplicated project)
     
     def __init__(self):
         super().__init__()
@@ -151,6 +152,12 @@ class ProjectTreeWidget(QTreeWidget):
             
             menu.addSeparator()
             
+            duplicate_action = QAction("Duplicate Project...", self)
+            duplicate_action.triggered.connect(lambda: self.duplicate_project_with_dialog(item_data))
+            menu.addAction(duplicate_action)
+            
+            menu.addSeparator()
+            
             remove_action = QAction("Remove Project", self)
             remove_action.triggered.connect(lambda: self.remove_project_with_confirmation(item_data))
             menu.addAction(remove_action)
@@ -237,3 +244,151 @@ class ProjectTreeWidget(QTreeWidget):
         project_item = self._find_project_item(project)
         if project_item is not None:
             self.setCurrentItem(project_item)
+    
+    def duplicate_project_with_dialog(self, project: Project):
+        """Show dialog to duplicate a project with options."""
+        dialog = DuplicateProjectDialog(project, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_name, include_analyses = dialog.get_values()
+            
+            try:
+                # Create the duplicate
+                duplicated_project = project.duplicate(new_name, include_analyses)
+                
+                # Add to tree
+                self.add_project(duplicated_project)
+                
+                # Select the new project
+                self.select_project(duplicated_project)
+                
+                # Emit signal
+                self.project_duplicated.emit(duplicated_project)
+                
+                # Show success message
+                analyses_text = "with" if include_analyses else "without"
+                QMessageBox.information(
+                    self,
+                    "Project Duplicated",
+                    f"Project '{project.name}' has been successfully duplicated as '{new_name}' {analyses_text} analysis history."
+                )
+                
+            except ValueError as e:
+                QMessageBox.warning(
+                    self,
+                    "Duplication Failed",
+                    f"Failed to duplicate project:\n\n{str(e)}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Duplication Error",
+                    f"An unexpected error occurred while duplicating the project:\n\n{str(e)}"
+                )
+
+
+class DuplicateProjectDialog(QDialog):
+    """Dialog for duplicating a project with options."""
+    
+    def __init__(self, project: Project, parent=None):
+        super().__init__(parent)
+        self.project = project
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Set up the dialog UI."""
+        self.setWindowTitle("Duplicate Project")
+        self.setModal(True)
+        self.resize(400, 200)
+        
+        layout = QVBoxLayout(self)
+        
+        # Title
+        title_label = QLabel(f"Duplicate project '{self.project.name}'")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.addWidget(title_label)
+        
+        # New name input
+        layout.addWidget(QLabel("New project name:"))
+        self.name_input = QInputDialog.getText(
+            self, 
+            "Project Name", 
+            "Enter name for the duplicated project:",
+            text=f"{self.project.name}_copy"
+        )
+        
+        # Include analyses checkbox
+        self.include_analyses_checkbox = QCheckBox("Include analysis history")
+        self.include_analyses_checkbox.setToolTip(
+            "If checked, all previous analyses will be copied to the new project.\n"
+            "If unchecked, the new project will start with no analysis history."
+        )
+        layout.addWidget(self.include_analyses_checkbox)
+        
+        # Info text
+        info_label = QLabel(
+            "This will create a complete copy of the project including:\n"
+            "• Workplan CSV file\n"
+            "• Resource configuration\n"
+            "• Project metadata\n"
+            "• Analysis history (if selected)"
+        )
+        info_label.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(info_label)
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def get_values(self):
+        """Get the values from the dialog."""
+        # Since we're using QInputDialog.getText, we need to handle it differently
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Project Name",
+            "Enter name for the duplicated project:",
+            text=f"{self.project.name}_copy"
+        )
+        
+        if not ok or not new_name.strip():
+            return None, False
+            
+        include_analyses = self.include_analyses_checkbox.isChecked()
+        return new_name.strip(), include_analyses
+    
+    def exec(self):
+        """Override exec to handle the input dialog properly."""
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Duplicate Project",
+            f"Enter name for the duplicated project '{self.project.name}':",
+            text=f"{self.project.name}_copy"
+        )
+        
+        if not ok or not new_name.strip():
+            return QDialog.DialogCode.Rejected
+            
+        self.new_name = new_name.strip()
+        
+        # Show checkbox dialog for analyses
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Include Analysis History?")
+        msg.setText(f"Include analysis history in the duplicated project '{self.new_name}'?")
+        msg.setInformativeText(
+            "• Yes: Copy all previous analyses to the new project\n"
+            "• No: Start with a clean project (no analysis history)"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        
+        result = msg.exec()
+        self.include_analyses = result == QMessageBox.StandardButton.Yes
+        
+        return QDialog.DialogCode.Accepted
+    
+    def get_values(self):
+        """Get the values from the dialog."""
+        return getattr(self, 'new_name', ''), getattr(self, 'include_analyses', False)
