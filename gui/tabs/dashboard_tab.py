@@ -351,11 +351,8 @@ class DashboardTab(QWidget):
         # Update utilization table
         capacity_data = None
         if analysis.resource_capacity:
-            capacity_data = {
-                "RangerCoordinator": analysis.resource_capacity.ranger_coordinator,
-                "SeniorRanger": analysis.resource_capacity.senior_ranger,
-                "Ranger": analysis.resource_capacity.ranger
-            }
+            # Get all resource types dynamically
+            capacity_data = analysis.resource_capacity.get_all_resources()
         
         self.utilization_model.set_data(analysis.utilization, capacity_data)
         

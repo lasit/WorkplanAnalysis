@@ -285,9 +285,9 @@ class AnalysesTab(QWidget):
         # Resource capacity used
         if analysis.resource_capacity:
             details.append("Resource Capacity:")
-            details.append(f"  Ranger Coordinator: {analysis.resource_capacity.ranger_coordinator}")
-            details.append(f"  Senior Ranger: {analysis.resource_capacity.senior_ranger}")
-            details.append(f"  Ranger: {analysis.resource_capacity.ranger}")
+            # Add all resource types dynamically
+            for resource_name, capacity in analysis.resource_capacity.get_all_resources().items():
+                details.append(f"  {resource_name}: {capacity}")
             details.append(f"  Slots per day: {analysis.resource_capacity.slots_per_day}")
             if analysis.resource_capacity.public_holidays:
                 details.append(f"  Public holidays: {', '.join(analysis.resource_capacity.public_holidays)}")
