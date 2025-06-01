@@ -228,14 +228,52 @@ class ResourceCapacity:
 
 
 @dataclass
+class InfeasibilityDiagnostics:
+    """Detailed diagnostics for infeasible analysis results."""
+    primary_reason: str = "Unknown"  # Main cause of infeasibility
+    severity: str = "Unknown"  # Critical, High, Moderate, Low
+    resource_overloads: List[Dict[str, Any]] = field(default_factory=list)
+    scheduling_conflicts: List[Dict[str, Any]] = field(default_factory=list)
+    invalid_configurations: List[Dict[str, Any]] = field(default_factory=list)
+    constraint_violations: List[Dict[str, Any]] = field(default_factory=list)
+    recommendations: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "primary_reason": self.primary_reason,
+            "severity": self.severity,
+            "resource_overloads": self.resource_overloads,
+            "scheduling_conflicts": self.scheduling_conflicts,
+            "invalid_configurations": self.invalid_configurations,
+            "constraint_violations": self.constraint_violations,
+            "recommendations": self.recommendations
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'InfeasibilityDiagnostics':
+        """Create InfeasibilityDiagnostics from dictionary."""
+        return cls(
+            primary_reason=data.get("primary_reason", "Unknown"),
+            severity=data.get("severity", "Unknown"),
+            resource_overloads=data.get("resource_overloads", []),
+            scheduling_conflicts=data.get("scheduling_conflicts", []),
+            invalid_configurations=data.get("invalid_configurations", []),
+            constraint_violations=data.get("constraint_violations", []),
+            recommendations=data.get("recommendations", [])
+        )
+
+
+@dataclass
 class AnalysisResult:
     """Results from a constraint programming analysis."""
     timestamp: datetime
     feasible: bool
     utilization: Dict[str, float]  # Role -> utilization percentage
-    overloads: List[Dict[str, Any]] = field(default_factory=list)
+    overloads: List[Dict[str, Any]] = field(default_factory=list)  # Legacy field for backward compatibility
     solver_stats: Dict[str, Any] = field(default_factory=dict)
     resource_capacity: Optional[ResourceCapacity] = None
+    infeasibility_diagnostics: Optional[InfeasibilityDiagnostics] = None  # Enhanced diagnostics for infeasible results
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -245,7 +283,8 @@ class AnalysisResult:
             "utilization": self.utilization,
             "overloads": self.overloads,
             "solver_stats": self.solver_stats,
-            "resource_capacity": self.resource_capacity.to_dict() if self.resource_capacity else None
+            "resource_capacity": self.resource_capacity.to_dict() if self.resource_capacity else None,
+            "infeasibility_diagnostics": self.infeasibility_diagnostics.to_dict() if self.infeasibility_diagnostics else None
         }
     
     @classmethod
@@ -256,13 +295,18 @@ class AnalysisResult:
         if data.get("resource_capacity"):
             resource_capacity = ResourceCapacity.from_dict(data["resource_capacity"])
         
+        infeasibility_diagnostics = None
+        if data.get("infeasibility_diagnostics"):
+            infeasibility_diagnostics = InfeasibilityDiagnostics.from_dict(data["infeasibility_diagnostics"])
+        
         return cls(
             timestamp=timestamp,
             feasible=data["feasible"],
             utilization=data["utilization"],
             overloads=data.get("overloads", []),
             solver_stats=data.get("solver_stats", {}),
-            resource_capacity=resource_capacity
+            resource_capacity=resource_capacity,
+            infeasibility_diagnostics=infeasibility_diagnostics
         )
 
 

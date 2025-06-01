@@ -218,6 +218,9 @@ class DashboardTab(QWidget):
         # Overload section (shown only if infeasible)
         self.setup_overload_section(scroll_layout)
         
+        # Enhanced infeasibility diagnostics section
+        self.setup_diagnostics_section(scroll_layout)
+        
         # Analysis info section
         self.setup_analysis_info_section(scroll_layout)
         
@@ -293,6 +296,46 @@ class DashboardTab(QWidget):
         # Initially hidden
         self.overload_group.setVisible(False)
         parent_layout.addWidget(self.overload_group)
+    
+    def setup_diagnostics_section(self, parent_layout):
+        """Set up the enhanced infeasibility diagnostics section."""
+        self.diagnostics_group = QGroupBox("Infeasibility Analysis")
+        diagnostics_layout = QVBoxLayout(self.diagnostics_group)
+        
+        # Primary reason and severity
+        self.primary_reason_label = QLabel("")
+        self.primary_reason_label.setWordWrap(True)
+        primary_font = QFont()
+        primary_font.setBold(True)
+        primary_font.setPointSize(12)
+        self.primary_reason_label.setFont(primary_font)
+        diagnostics_layout.addWidget(self.primary_reason_label)
+        
+        # Recommendations section
+        recommendations_label = QLabel("Recommendations:")
+        recommendations_font = QFont()
+        recommendations_font.setBold(True)
+        recommendations_label.setFont(recommendations_font)
+        diagnostics_layout.addWidget(recommendations_label)
+        
+        self.recommendations_label = QLabel("")
+        self.recommendations_label.setWordWrap(True)
+        self.recommendations_label.setStyleSheet("margin-left: 10px; color: #2E7D32;")
+        diagnostics_layout.addWidget(self.recommendations_label)
+        
+        # Detailed issues section
+        issues_label = QLabel("Detailed Issues:")
+        issues_label.setFont(recommendations_font)
+        diagnostics_layout.addWidget(issues_label)
+        
+        self.issues_label = QLabel("")
+        self.issues_label.setWordWrap(True)
+        self.issues_label.setStyleSheet("margin-left: 10px; color: #666;")
+        diagnostics_layout.addWidget(self.issues_label)
+        
+        # Initially hidden
+        self.diagnostics_group.setVisible(False)
+        parent_layout.addWidget(self.diagnostics_group)
     
     def setup_analysis_info_section(self, parent_layout):
         """Set up the analysis information section."""
@@ -370,6 +413,39 @@ class DashboardTab(QWidget):
         else:
             self.overload_group.setVisible(False)
         
+        # Update enhanced diagnostics section
+        if not analysis.feasible and analysis.infeasibility_diagnostics:
+            self.diagnostics_group.setVisible(True)
+            diagnostics = analysis.infeasibility_diagnostics
+            
+            # Update primary reason with severity styling
+            severity_color = {
+                "Critical": "#D32F2F",
+                "High": "#F57C00", 
+                "Moderate": "#FBC02D",
+                "Low": "#388E3C",
+                "Unknown": "#666"
+            }.get(diagnostics.severity, "#666")
+            
+            self.primary_reason_label.setText(
+                f"🔍 Primary Issue: {diagnostics.primary_reason} ({diagnostics.severity} Severity)"
+            )
+            self.primary_reason_label.setStyleSheet(f"color: {severity_color};")
+            
+            # Update recommendations
+            if diagnostics.recommendations:
+                recommendations_text = "\n".join([f"• {rec}" for rec in diagnostics.recommendations[:5]])
+                self.recommendations_label.setText(recommendations_text)
+            else:
+                self.recommendations_label.setText("No specific recommendations available.")
+            
+            # Update detailed issues
+            issues_text = self._format_detailed_issues(diagnostics)
+            self.issues_label.setText(issues_text)
+            
+        else:
+            self.diagnostics_group.setVisible(False)
+        
         # Update analysis info
         solver_stats = analysis.solver_stats
         self.solver_status_label.setText(solver_stats.get("status", "Unknown"))
@@ -385,6 +461,55 @@ class DashboardTab(QWidget):
         
         # Switch to results page
         self.stacked_widget.setCurrentIndex(1)
+    
+    def _format_detailed_issues(self, diagnostics) -> str:
+        """Format detailed diagnostic issues for display."""
+        issues = []
+        
+        # Resource overloads
+        if diagnostics.resource_overloads:
+            issues.append("🔴 Resource Overloads:")
+            for overload in diagnostics.resource_overloads[:3]:  # Show top 3
+                role = overload.get("role", "Unknown")
+                util = overload.get("utilization_percentage", 0)
+                additional = overload.get("min_additional_staff", 0)
+                issues.append(f"   • {role}: {util:.1f}% utilised (need {additional} more staff)")
+        
+        # Scheduling conflicts
+        if diagnostics.scheduling_conflicts:
+            issues.append("⏰ Scheduling Conflicts:")
+            for conflict in diagnostics.scheduling_conflicts[:3]:  # Show top 3
+                if conflict.get("type") == "impossible_activity":
+                    activity = conflict.get("activity_name", "Unknown")
+                    role = conflict.get("role", "Unknown")
+                    demand = conflict.get("demand", 0)
+                    capacity = conflict.get("capacity", 0)
+                    issues.append(f"   • '{activity}' needs {demand} {role} but only {capacity} available")
+                elif conflict.get("type") == "time_horizon_exceeded":
+                    excess = conflict.get("excess_slots", 0)
+                    issues.append(f"   • Total activity time exceeds available slots by {excess}")
+        
+        # Invalid configurations
+        if diagnostics.invalid_configurations:
+            issues.append("⚠️ Configuration Issues:")
+            for config in diagnostics.invalid_configurations[:3]:  # Show top 3
+                if config.get("type") == "excessive_frequency":
+                    activity = config.get("activity_name", "Unknown")
+                    excess = config.get("excess", 0)
+                    issues.append(f"   • '{activity}' frequency too high (reduce by {excess})")
+                elif config.get("type") == "zero_resources":
+                    activity = config.get("activity_name", "Unknown")
+                    issues.append(f"   • '{activity}' requires no resources")
+        
+        # Constraint violations
+        if diagnostics.constraint_violations:
+            issues.append("🚫 Constraint Violations:")
+            for violation in diagnostics.constraint_violations[:3]:  # Show top 3
+                if violation.get("type") == "missing_resource_types":
+                    missing = violation.get("missing_resources", [])
+                    issues.append(f"   • Missing resource types: {', '.join(missing)}")
+        
+        return "\n".join(issues) if issues else "No detailed issues identified."
     
     def show_waiting(self):
         """Show the waiting page."""
