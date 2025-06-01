@@ -334,12 +334,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "No Project", "Please select a project first.")
                 return
         
-        # Verify we have activities to analyze
+        # Verify we have activities to analyse
         if not self.current_project.activities:
             QMessageBox.information(
                 self, 
                 "No Activities", 
-                f"Project '{self.current_project.name}' has no activities to analyze."
+                f"Project '{self.current_project.name}' has no activities to analyse."
             )
             return
         

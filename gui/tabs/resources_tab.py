@@ -156,8 +156,8 @@ class ResourcesTab(QWidget):
         
         holidays_layout.addWidget(auto_holidays_group)
         
-        # Custom organization holidays section
-        custom_holidays_group = QGroupBox("⚙ Additional Organization Holidays")
+        # Custom organisation holidays section
+        custom_holidays_group = QGroupBox("⚙ Additional Organisation Holidays")
         custom_holidays_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -537,7 +537,7 @@ class ResourcesTab(QWidget):
         if self.current_resources and self.current_resources.custom_holidays:
             for holiday_date in self.current_resources.custom_holidays:
                 item = QListWidgetItem(holiday_date)
-                item.setToolTip("Organization-specific holiday")
+                item.setToolTip("Organisation-specific holiday")
                 self.custom_holidays_list.addItem(item)
         
         # Update holiday summary
@@ -554,19 +554,19 @@ class ResourcesTab(QWidget):
         self.holiday_summary_label.setText(summary_text)
     
     def add_custom_holiday(self):
-        """Add a new custom organization holiday."""
+        """Add a new custom organisation holiday."""
         from PyQt6.QtWidgets import QCalendarWidget, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QLabel
         
         # Create calendar dialog
         dialog = QDialog(self)
-        dialog.setWindowTitle("Add Organization Holiday")
+        dialog.setWindowTitle("Add Organisation Holiday")
         dialog.setModal(True)
         dialog.resize(400, 350)
         
         layout = QVBoxLayout(dialog)
         
         # Add instruction label
-        instruction_label = QLabel("Select a date for the organization holiday:")
+        instruction_label = QLabel("Select a date for the organisation holiday:")
         layout.addWidget(instruction_label)
         
         # Create calendar widget

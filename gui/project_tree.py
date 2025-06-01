@@ -82,7 +82,7 @@ class ProjectTreeWidget(QTreeWidget):
         tooltip = f"Analysis: {timestamp_str}\n"
         tooltip += f"Feasible: {'Yes' if analysis.feasible else 'No'}\n"
         if analysis.utilization:
-            tooltip += "Utilization:\n"
+            tooltip += "Utilisation:\n"
             for role, util in analysis.utilization.items():
                 tooltip += f"  {role}: {util:.1f}%\n"
         analysis_item.setToolTip(0, tooltip)

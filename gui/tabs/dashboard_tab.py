@@ -12,20 +12,20 @@ from typing import Optional, List, Dict, Any
 from core.models import Project, AnalysisResult
 
 
-class UtilizationTableModel(QAbstractTableModel):
-    """Table model for displaying utilization data."""
+class UtilisationTableModel(QAbstractTableModel):
+    """Table model for displaying utilisation data."""
     
     def __init__(self):
         super().__init__()
-        self.data_items: List[tuple] = []  # (role, utilization, capacity)
-        self.headers = ["Role", "Utilization (%)", "Status"]
+        self.data_items: List[tuple] = []  # (role, utilisation, capacity)
+        self.headers = ["Role", "Utilisation (%)", "Status"]
     
-    def set_data(self, utilization: Dict[str, float], capacity_data: Optional[Dict[str, int]] = None):
-        """Set utilization data to display."""
+    def set_data(self, utilisation: Dict[str, float], capacity_data: Optional[Dict[str, int]] = None):
+        """Set utilisation data to display."""
         self.beginResetModel()
         self.data_items = []
         
-        for role, util in utilization.items():
+        for role, util in utilisation.items():
             capacity = capacity_data.get(role, 0) if capacity_data else 0
             self.data_items.append((role, util, capacity))
         
@@ -44,34 +44,34 @@ class UtilizationTableModel(QAbstractTableModel):
         if not index.isValid() or index.row() >= len(self.data_items):
             return QVariant()
         
-        role_name, utilization, capacity = self.data_items[index.row()]
+        role_name, utilisation, capacity = self.data_items[index.row()]
         column = index.column()
         
         if role == Qt.ItemDataRole.DisplayRole:
             if column == 0:
                 return role_name
             elif column == 1:
-                return f"{utilization:.1f}%"
+                return f"{utilisation:.1f}%"
             elif column == 2:
-                if utilization > 100:
+                if utilisation > 100:
                     return "Overloaded"
-                elif utilization > 90:
+                elif utilisation > 90:
                     return "High"
-                elif utilization > 70:
+                elif utilisation > 70:
                     return "Moderate"
                 else:
                     return "Low"
         
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            if column == 1:  # Utilization column
+            if column == 1:  # Utilisation column
                 return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         
         elif role == Qt.ItemDataRole.BackgroundRole:
             if column == 2:  # Status column
-                if utilization > 100:
+                if utilisation > 100:
                     return QPalette().color(QPalette.ColorRole.Base).lighter(120)  # Light red
-                elif utilization > 90:
+                elif utilisation > 90:
                     return QPalette().color(QPalette.ColorRole.Base).lighter(110)  # Light orange
         
         return QVariant()
@@ -212,8 +212,8 @@ class DashboardTab(QWidget):
         # Verdict section
         self.setup_verdict_section(scroll_layout)
         
-        # Utilization section
-        self.setup_utilization_section(scroll_layout)
+        # Utilisation section
+        self.setup_utilisation_section(scroll_layout)
         
         # Overload section (shown only if infeasible)
         self.setup_overload_section(scroll_layout)
@@ -248,24 +248,24 @@ class DashboardTab(QWidget):
         
         parent_layout.addWidget(verdict_group)
     
-    def setup_utilization_section(self, parent_layout):
-        """Set up the utilization display section."""
-        utilization_group = QGroupBox("Resource Utilization")
-        utilization_layout = QVBoxLayout(utilization_group)
+    def setup_utilisation_section(self, parent_layout):
+        """Set up the utilisation display section."""
+        utilisation_group = QGroupBox("Resource Utilisation")
+        utilisation_layout = QVBoxLayout(utilisation_group)
         
-        # Utilization table
-        self.utilization_table = QTableView()
-        self.utilization_model = UtilizationTableModel()
-        self.utilization_table.setModel(self.utilization_model)
+        # Utilisation table
+        self.utilisation_table = QTableView()
+        self.utilisation_model = UtilisationTableModel()
+        self.utilisation_table.setModel(self.utilisation_model)
         
         # Configure table
-        self.utilization_table.setAlternatingRowColors(True)
-        self.utilization_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
-        self.utilization_table.horizontalHeader().setStretchLastSection(True)
-        self.utilization_table.setMaximumHeight(150)
+        self.utilisation_table.setAlternatingRowColors(True)
+        self.utilisation_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.utilisation_table.horizontalHeader().setStretchLastSection(True)
+        self.utilisation_table.setMaximumHeight(150)
         
-        utilization_layout.addWidget(self.utilization_table)
-        parent_layout.addWidget(utilization_group)
+        utilisation_layout.addWidget(self.utilisation_table)
+        parent_layout.addWidget(utilisation_group)
     
     def setup_overload_section(self, parent_layout):
         """Set up the overload information section."""
@@ -348,13 +348,13 @@ class DashboardTab(QWidget):
         timestamp_str = analysis.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         self.timestamp_label.setText(f"Analysis completed: {timestamp_str}")
         
-        # Update utilization table
+        # Update utilisation table
         capacity_data = None
         if analysis.resource_capacity:
             # Get all resource types dynamically
             capacity_data = analysis.resource_capacity.get_all_resources()
         
-        self.utilization_model.set_data(analysis.utilization, capacity_data)
+        self.utilisation_model.set_data(analysis.utilization, capacity_data)
         
         # Update overload section
         if not analysis.feasible and analysis.overloads:

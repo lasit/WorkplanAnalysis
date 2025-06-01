@@ -62,7 +62,7 @@ class AnalysisListWidget(QListWidget):
         tooltip = f"Analysis: {timestamp_str}\n"
         tooltip += f"Feasible: {'Yes' if analysis.feasible else 'No'}\n"
         if analysis.utilization:
-            tooltip += "Utilization:\n"
+            tooltip += "Utilisation:\n"
             for role, util in analysis.utilization.items():
                 tooltip += f"  {role}: {util:.1f}%\n"
         if analysis.solver_stats:
@@ -295,7 +295,7 @@ class AnalysesTab(QWidget):
         
         # Utilization
         if analysis.utilization:
-            details.append("Resource Utilization:")
+            details.append("Resource Utilisation:")
             for role, util in analysis.utilization.items():
                 status = ""
                 if util > 100:
