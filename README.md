@@ -60,7 +60,14 @@ Workplan Analysis is a work-plan feasibility checker that evaluates whether a qu
 - PyQt6
 - pandas
 - PyYAML
-- OR-Tools (for future solver integration)
+- OR-Tools
+- matplotlib
+
+### Cross-Platform Support
+
+✅ **macOS** - Original development platform  
+✅ **Windows 11** - Fully tested and compatible  
+✅ **Linux** - Should work (PyQt6 cross-platform)
 
 ### Setup
 
@@ -73,6 +80,16 @@ pip install -r requirements.txt
 ```bash
 python3 main.py
 ```
+
+## Windows 11 Support
+
+This project has been fully tested and verified on Windows 11. Windows-specific files have been created for easy setup:
+
+- **`start_app.bat`** - Windows launcher script (double-click to run)
+- **`install_dependencies.bat`** - Dependency installation script
+- **`WINDOWS_SETUP.md`** - Detailed Windows setup guide
+
+For Windows users, simply double-click `start_app.bat` to launch the application.
 
 ## Usage
 
