@@ -19,6 +19,7 @@ from .tabs.resources_tab import ResourcesTab
 from .tabs.dashboard_tab import DashboardTab
 from .tabs.analyses_tab import AnalysesTab
 from .solver_worker import SolverWorker
+from .analysis_progress_dialog import AnalysisProgressDialog
 
 
 class MainWindow(QMainWindow):
@@ -33,6 +34,7 @@ class MainWindow(QMainWindow):
         self.current_project: Optional[Project] = None
         self.projects: List[Project] = []
         self.solver_worker: Optional[SolverWorker] = None
+        self.progress_dialog: Optional[AnalysisProgressDialog] = None
         
         self.setup_ui()
         self.setup_menus()
@@ -446,6 +448,9 @@ class MainWindow(QMainWindow):
             )
             return
         
+        # Create and show progress dialog
+        self.progress_dialog = AnalysisProgressDialog(self)
+        
         # Start the solver in a background thread
         self.solver_worker = SolverWorker(self.current_project)
         
@@ -454,13 +459,20 @@ class MainWindow(QMainWindow):
         self.solver_worker.analysis_progress.connect(self.on_analysis_progress)
         self.solver_worker.analysis_completed.connect(self.on_analysis_completed)
         self.solver_worker.analysis_failed.connect(self.on_analysis_failed)
+        self.solver_worker.analysis_cancelled.connect(self.on_analysis_cancelled)
+        
+        # Connect progress dialog signals
+        self.progress_dialog.cancel_requested.connect(self.on_cancel_analysis)
         
         # Start the worker
         self.solver_worker.start()
+        
+        # Show progress dialog
+        self.progress_dialog.show()
     
     def on_analysis_started(self):
         """Handle analysis start."""
-        self.status_bar.showMessage("Starting analysis...")
+        self.status_bar.showMessage("Analysis started...")
         
         # Switch to dashboard tab to show progress
         self.tab_widget.setCurrentIndex(2)
@@ -468,6 +480,10 @@ class MainWindow(QMainWindow):
     def on_analysis_progress(self, message: str):
         """Handle analysis progress updates."""
         self.status_bar.showMessage(f"Analysis: {message}")
+        
+        # Update progress dialog
+        if self.progress_dialog:
+            self.progress_dialog.update_status(message)
     
     def on_analysis_completed(self, result):
         """Handle analysis completion."""
@@ -496,21 +512,40 @@ class MainWindow(QMainWindow):
             f"Analysis complete: {verdict} (solved in {solve_time:.2f}s)"
         )
         
-        # Clean up worker
+        # Update progress dialog
+        if self.progress_dialog:
+            self.progress_dialog.analysis_completed(True, f"{verdict} in {solve_time:.2f}s")
+        
+        # Clean up
         self.solver_worker = None
     
     def on_analysis_failed(self, error_message: str):
         """Handle analysis failure."""
         self.status_bar.showMessage("Analysis failed")
         
-        QMessageBox.critical(
-            self,
-            "Analysis Error",
-            f"The analysis failed with the following error:\n\n{error_message}"
-        )
+        # Update progress dialog
+        if self.progress_dialog:
+            self.progress_dialog.analysis_completed(False, error_message)
         
-        # Clean up worker
+        # Clean up
         self.solver_worker = None
+    
+    def on_analysis_cancelled(self):
+        """Handle analysis cancellation."""
+        self.status_bar.showMessage("Analysis cancelled by user")
+        
+        # Update progress dialog
+        if self.progress_dialog:
+            self.progress_dialog.analysis_cancelled()
+        
+        # Clean up
+        self.solver_worker = None
+    
+    def on_cancel_analysis(self):
+        """Handle cancellation request from progress dialog."""
+        if self.solver_worker and self.solver_worker.isRunning():
+            self.solver_worker.cancel()
+            self.status_bar.showMessage("Cancelling analysis...")
     
     def on_project_duplicated(self, duplicated_project: Project):
         """Handle project duplication."""
