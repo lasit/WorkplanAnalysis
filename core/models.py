@@ -149,8 +149,9 @@ class Project:
     def project_dir(self) -> Path:
         """Get the project directory path."""
         from pathlib import Path
-        home = Path.home()
-        return home / ".workplan_analysis" / self.name
+        # Use projects/ folder in the application directory
+        app_dir = Path.cwd()
+        return app_dir / "projects" / self.name
     
     def ensure_project_dir(self):
         """Ensure project directory exists."""
@@ -226,8 +227,8 @@ class Project:
     @classmethod
     def get_all_projects(cls) -> List['Project']:
         """Get all available projects from the file system."""
-        home = Path.home()
-        projects_dir = home / ".workplan_analysis"
+        app_dir = Path.cwd()
+        projects_dir = app_dir / "projects"
         
         if not projects_dir.exists():
             return []

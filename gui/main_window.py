@@ -211,7 +211,7 @@ class MainWindow(QMainWindow):
                     counter += 1
                 project_name = f"{project_name}_{counter}"
             
-            # Create new project
+            # Create new project with temporary path (will be updated after copying)
             project = Project(
                 name=project_name,
                 workplan_path=Path(file_path),
@@ -220,6 +220,19 @@ class MainWindow(QMainWindow):
             
             # Ensure project directory exists
             project.ensure_project_dir()
+            
+            # Copy CSV file to project directory
+            import shutil
+            project_csv_path = project.project_dir / "workplan.csv"
+            shutil.copy2(file_path, project_csv_path)
+            
+            # Update project to point to copied CSV
+            project.workplan_path = project_csv_path
+            
+            # Create default resources file in project directory
+            project_resources_path = project.project_dir / "resources.yml"
+            if project.current_resources:
+                DataLoader.save_resources_yaml(project.current_resources, project_resources_path)
             
             # Save the project
             project.save_project()
@@ -236,15 +249,15 @@ class MainWindow(QMainWindow):
             # Show summary
             summary = DataLoader.get_workplan_summary(activities)
             self.status_bar.showMessage(
-                f"Loaded project '{project_name}': {summary.get('total_activities', 0)} activities, "
-                f"{summary.get('total_occurrences', 0)} total occurrences"
+                f"Created project '{project_name}': {summary.get('total_activities', 0)} activities, "
+                f"{summary.get('total_occurrences', 0)} total occurrences (files copied to projects/{project_name}/)"
             )
             
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Error Loading Project",
-                f"Failed to load workplan CSV:\n\n{str(e)}"
+                "Error Creating Project",
+                f"Failed to create project:\n\n{str(e)}"
             )
     
     def import_resources(self):
@@ -404,8 +417,11 @@ class MainWindow(QMainWindow):
         """Handle resource configuration changes."""
         if self.current_project:
             self.current_project.current_resources = resources
-            # Auto-save project when resources change
+            # Save resources to project directory
             try:
+                project_resources_path = self.current_project.project_dir / "resources.yml"
+                DataLoader.save_resources_yaml(resources, project_resources_path)
+                # Auto-save project when resources change
                 self.current_project.save_project()
             except Exception as e:
                 print(f"Warning: Could not auto-save project: {e}")

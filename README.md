@@ -93,12 +93,17 @@ For Windows users, simply double-click `start_app.bat` to launch the application
 
 ## Usage
 
-### Loading a Project
+### Creating a New Project
 
 1. **File → New Project...** or `Cmd+N`
 2. Select a CSV workplan file (use `sample_workplan.csv` for testing)
 3. Review any validation warnings
-4. The project will appear in the sidebar
+4. The application will:
+   - Create a new folder in `projects/{project_name}/`
+   - Copy the CSV file to `projects/{project_name}/workplan.csv`
+   - Create a default `projects/{project_name}/resources.yml`
+   - Save project metadata to `projects/{project_name}/project.json`
+5. The project will appear in the sidebar
 
 ### Configuring Resources
 
@@ -152,12 +157,39 @@ public_holidays:
 - '2025-08-25'
 ```
 
+## Project Organization
+
+### Folder Structure
+
+Each project is self-contained in its own folder within the `projects/` directory:
+
+```
+projects/
+├── sample_workplan/           # Example project
+│   ├── workplan.csv          # Copied CSV data
+│   ├── resources.yml         # Resource configuration
+│   └── project.json          # Project metadata & analyses
+├── my_project/               # Another project
+│   ├── workplan.csv
+│   ├── resources.yml
+│   └── project.json
+└── ...
+```
+
+**Benefits:**
+- ✅ **Self-contained**: Each project includes all its files
+- ✅ **Portable**: Easy to backup, share, or move projects
+- ✅ **Clean**: No file path dependencies outside project folder
+- ✅ **Organized**: Clear separation between different workplans
+
 ## Architecture
 
 ```
 workplan_analysis/
 ├── main.py                    # Application entry point
 ├── requirements.txt           # Dependencies
+├── projects/                  # Project data (excluded from git)
+│   └── {project_name}/       # Individual project folders
 ├── core/                      # Business logic
 │   ├── models.py             # Data models
 │   └── data_loader.py        # CSV/YAML handling
