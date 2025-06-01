@@ -98,38 +98,143 @@ class ResourcesTab(QWidget):
         parent_layout.addWidget(capacity_group)
     
     def setup_holidays_section(self, parent_layout):
-        """Set up the public holidays section."""
+        """Set up the public holidays section with auto-detected and custom holidays."""
         holidays_group = QGroupBox("Public Holidays")
         holidays_layout = QVBoxLayout(holidays_group)
         
-        # Description
-        desc_label = QLabel("Specify dates when no work can be scheduled (format: YYYY-MM-DD).")
-        desc_label.setStyleSheet("color: gray;")
-        holidays_layout.addWidget(desc_label)
+        # Quarter info and description
+        self.quarter_info_label = QLabel("Holidays for planning period")
+        quarter_font = QFont()
+        quarter_font.setBold(True)
+        self.quarter_info_label.setFont(quarter_font)
+        holidays_layout.addWidget(self.quarter_info_label)
         
-        # Holidays list and controls
-        list_layout = QHBoxLayout()
+        # Working days summary
+        self.working_days_label = QLabel("Working days calculation will be shown here")
+        self.working_days_label.setStyleSheet("color: #666; font-style: italic;")
+        holidays_layout.addWidget(self.working_days_label)
         
-        # Holidays list
-        self.holidays_list = QListWidget()
-        self.holidays_list.setMaximumHeight(150)
-        list_layout.addWidget(self.holidays_list)
+        # Auto-detected NT holidays section
+        auto_holidays_group = QGroupBox("✓ Auto-detected NT Holidays")
+        auto_holidays_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                color: #2E7D32;
+                border: 2px solid #4CAF50;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
+        auto_holidays_layout = QVBoxLayout(auto_holidays_group)
         
-        # Buttons for managing holidays
-        buttons_layout = QVBoxLayout()
+        # Auto holidays list (read-only)
+        self.auto_holidays_list = QListWidget()
+        self.auto_holidays_list.setMaximumHeight(120)
+        self.auto_holidays_list.setStyleSheet("""
+            QListWidget {
+                background-color: #F1F8E9;
+                border: 1px solid #C8E6C9;
+                border-radius: 3px;
+                color: #2E7D32;
+                font-weight: bold;
+            }
+            QListWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #E8F5E8;
+                color: #1B5E20;
+            }
+        """)
+        # Make it read-only
+        self.auto_holidays_list.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        auto_holidays_layout.addWidget(self.auto_holidays_list)
         
-        self.add_holiday_button = QPushButton("Add Holiday")
-        self.add_holiday_button.clicked.connect(self.add_holiday)
-        buttons_layout.addWidget(self.add_holiday_button)
+        holidays_layout.addWidget(auto_holidays_group)
         
-        self.remove_holiday_button = QPushButton("Remove Selected")
-        self.remove_holiday_button.clicked.connect(self.remove_holiday)
-        buttons_layout.addWidget(self.remove_holiday_button)
+        # Custom organization holidays section
+        custom_holidays_group = QGroupBox("⚙ Additional Organization Holidays")
+        custom_holidays_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                color: #1976D2;
+                border: 2px solid #2196F3;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
+        custom_holidays_layout = QVBoxLayout(custom_holidays_group)
         
-        buttons_layout.addStretch()
-        list_layout.addLayout(buttons_layout)
+        # Custom holidays list and controls
+        custom_list_layout = QHBoxLayout()
         
-        holidays_layout.addLayout(list_layout)
+        # Custom holidays list (editable)
+        self.custom_holidays_list = QListWidget()
+        self.custom_holidays_list.setMaximumHeight(100)
+        self.custom_holidays_list.setStyleSheet("""
+            QListWidget {
+                background-color: #E3F2FD;
+                border: 1px solid #BBDEFB;
+                border-radius: 3px;
+                color: #1976D2;
+                font-weight: bold;
+            }
+            QListWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #E1F5FE;
+                color: #0D47A1;
+            }
+        """)
+        custom_list_layout.addWidget(self.custom_holidays_list)
+        
+        # Buttons for managing custom holidays
+        custom_buttons_layout = QVBoxLayout()
+        
+        self.add_custom_holiday_button = QPushButton("Add Holiday")
+        self.add_custom_holiday_button.clicked.connect(self.add_custom_holiday)
+        self.add_custom_holiday_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        custom_buttons_layout.addWidget(self.add_custom_holiday_button)
+        
+        self.remove_custom_holiday_button = QPushButton("Remove Selected")
+        self.remove_custom_holiday_button.clicked.connect(self.remove_custom_holiday)
+        custom_buttons_layout.addWidget(self.remove_custom_holiday_button)
+        
+        custom_buttons_layout.addStretch()
+        custom_list_layout.addLayout(custom_buttons_layout)
+        
+        custom_holidays_layout.addLayout(custom_list_layout)
+        holidays_layout.addWidget(custom_holidays_group)
+        
+        # Holiday summary
+        self.holiday_summary_label = QLabel("Total holidays: 0")
+        summary_font = QFont()
+        summary_font.setBold(True)
+        self.holiday_summary_label.setFont(summary_font)
+        self.holiday_summary_label.setStyleSheet("color: #333; padding: 10px; background-color: #F5F5F5; border-radius: 3px;")
+        holidays_layout.addWidget(self.holiday_summary_label)
+        
         parent_layout.addWidget(holidays_group)
     
     def setup_action_buttons(self, parent_layout):
@@ -180,11 +285,8 @@ class ResourcesTab(QWidget):
         # Update resources table
         self.populate_resources_table(resources.get_all_resources())
         
-        # Update holidays list
-        self.holidays_list.clear()
-        for holiday in resources.public_holidays:
-            item = QListWidgetItem(holiday)
-            self.holidays_list.addItem(item)
+        # Update holiday displays
+        self.update_holiday_displays()
     
     def populate_resources_table(self, resources_dict: Dict[str, int]):
         """Populate the resources table with resource data."""
@@ -199,40 +301,7 @@ class ResourcesTab(QWidget):
             capacity_item = QTableWidgetItem(str(capacity))
             self.resources_table.setItem(row, 1, capacity_item)
     
-    def get_current_resources(self) -> ResourceCapacity:
-        """Get the current resource configuration from the UI."""
-        # Get resources from table
-        resources_dict = {}
-        for row in range(self.resources_table.rowCount()):
-            name_item = self.resources_table.item(row, 0)
-            capacity_item = self.resources_table.item(row, 1)
-            
-            if name_item and capacity_item:
-                resource_name = name_item.text().strip()
-                try:
-                    capacity = int(capacity_item.text())
-                    if capacity < 0:
-                        capacity = 0
-                except ValueError:
-                    capacity = 0
-                
-                if resource_name:  # Only add if name is not empty
-                    resources_dict[resource_name] = capacity
-        
-        # Get holidays
-        holidays = []
-        for i in range(self.holidays_list.count()):
-            item = self.holidays_list.item(i)
-            holidays.append(item.text())
-        
-        # Create ResourceCapacity with the new format
-        resource_capacity = ResourceCapacity(
-            resources=resources_dict,
-            slots_per_day=4,
-            public_holidays=holidays
-        )
-        
-        return resource_capacity
+
     
     def on_capacity_changed(self):
         """Handle changes to capacity values."""
@@ -422,6 +491,231 @@ class ResourcesTab(QWidget):
             "Resources Saved",
             "Resource configuration has been saved to the project."
         )
+    
+    def update_holiday_displays(self):
+        """Update the holiday displays with auto-detected and custom holidays."""
+        if not self.current_project:
+            self.quarter_info_label.setText("No project selected")
+            self.working_days_label.setText("")
+            self.auto_holidays_list.clear()
+            self.custom_holidays_list.clear()
+            self.holiday_summary_label.setText("Total holidays: 0")
+            return
+        
+        # Update quarter info
+        if self.current_project.planning_quarter:
+            quarter_info = self.current_project.get_quarter_info()
+            if quarter_info and not quarter_info.get('error'):
+                quarter_text = f"Holidays for {quarter_info['quarter']} ({quarter_info['start_date']} to {quarter_info['end_date']})"
+                self.quarter_info_label.setText(quarter_text)
+                
+                working_days_text = f"{quarter_info['working_days']} working days ({quarter_info['total_days']} total - weekends - holidays)"
+                self.working_days_label.setText(working_days_text)
+            else:
+                self.quarter_info_label.setText(f"Holidays for {self.current_project.planning_quarter}")
+                self.working_days_label.setText("Working days calculation unavailable")
+        else:
+            self.quarter_info_label.setText("No planning quarter set")
+            self.working_days_label.setText("")
+        
+        # Update auto-detected holidays
+        self.auto_holidays_list.clear()
+        auto_holidays = self.current_project.get_auto_holidays_for_quarter()
+        if auto_holidays:
+            for date_str, holiday_name in auto_holidays:
+                item_text = f"{date_str}  {holiday_name}"
+                item = QListWidgetItem(item_text)
+                item.setToolTip(f"{holiday_name} - Auto-detected NT public holiday")
+                self.auto_holidays_list.addItem(item)
+        else:
+            item = QListWidgetItem("No NT public holidays in this period")
+            item.setToolTip("No Northern Territory public holidays fall within the planning quarter")
+            self.auto_holidays_list.addItem(item)
+        
+        # Update custom holidays
+        self.custom_holidays_list.clear()
+        if self.current_resources and self.current_resources.custom_holidays:
+            for holiday_date in self.current_resources.custom_holidays:
+                item = QListWidgetItem(holiday_date)
+                item.setToolTip("Organization-specific holiday")
+                self.custom_holidays_list.addItem(item)
+        
+        # Update holiday summary
+        auto_count = len(auto_holidays)
+        custom_count = len(self.current_resources.custom_holidays) if self.current_resources and self.current_resources.custom_holidays else 0
+        legacy_count = len(self.current_resources.public_holidays) if self.current_resources and self.current_resources.public_holidays else 0
+        
+        total_holidays = auto_count + custom_count + legacy_count
+        summary_text = f"Total holidays: {total_holidays} ({auto_count} NT + {custom_count} custom"
+        if legacy_count > 0:
+            summary_text += f" + {legacy_count} legacy"
+        summary_text += ")"
+        
+        self.holiday_summary_label.setText(summary_text)
+    
+    def add_custom_holiday(self):
+        """Add a new custom organization holiday."""
+        from PyQt6.QtWidgets import QCalendarWidget, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QLabel
+        
+        # Create calendar dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Organization Holiday")
+        dialog.setModal(True)
+        dialog.resize(400, 350)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Add instruction label
+        instruction_label = QLabel("Select a date for the organization holiday:")
+        layout.addWidget(instruction_label)
+        
+        # Create calendar widget
+        calendar = QCalendarWidget()
+        calendar.setSelectedDate(QDate.currentDate())
+        
+        # Set calendar to show only the planning quarter if available
+        if self.current_project and self.current_project.planning_quarter:
+            try:
+                start_date, end_date = self.current_project.parse_financial_quarter(self.current_project.planning_quarter)
+                calendar.setMinimumDate(QDate(start_date.year, start_date.month, start_date.day))
+                calendar.setMaximumDate(QDate(end_date.year, end_date.month, end_date.day))
+            except Exception:
+                pass  # If parsing fails, allow any date
+        
+        layout.addWidget(calendar)
+        
+        # Add buttons
+        button_layout = QHBoxLayout()
+        
+        ok_button = QPushButton("Add Holiday")
+        ok_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        ok_button.clicked.connect(dialog.accept)
+        
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(dialog.reject)
+        
+        button_layout.addStretch()
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(ok_button)
+        
+        layout.addLayout(button_layout)
+        
+        # Show dialog and get result
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        
+        # Get selected date
+        selected_date = calendar.selectedDate()
+        date_str = selected_date.toString("yyyy-MM-dd")
+        
+        # Check if it's already an auto-detected holiday
+        auto_holidays = self.current_project.get_auto_holidays_for_quarter() if self.current_project else []
+        auto_dates = [date for date, _ in auto_holidays]
+        if date_str in auto_dates:
+            QMessageBox.information(
+                self,
+                "Already a Public Holiday",
+                f"This date ({date_str}) is already an auto-detected NT public holiday."
+            )
+            return
+        
+        # Check for duplicates in custom holidays
+        if self.current_resources and self.current_resources.custom_holidays:
+            if date_str in self.current_resources.custom_holidays:
+                QMessageBox.information(
+                    self,
+                    "Duplicate Date",
+                    "This date is already in the custom holidays list."
+                )
+                return
+        
+        # Add to custom holidays
+        if not self.current_resources:
+            self.current_resources = ResourceCapacity()
+        
+        if not self.current_resources.custom_holidays:
+            self.current_resources.custom_holidays = []
+        
+        self.current_resources.custom_holidays.append(date_str)
+        self.current_resources.custom_holidays.sort()
+        
+        # Update display and emit signal
+        self.update_holiday_displays()
+        self.resources_changed.emit(self.current_resources)
+    
+    def remove_custom_holiday(self):
+        """Remove the selected custom holiday."""
+        current_item = self.custom_holidays_list.currentItem()
+        if not current_item:
+            QMessageBox.information(
+                self,
+                "No Selection",
+                "Please select a custom holiday to remove."
+            )
+            return
+        
+        date_str = current_item.text()
+        
+        # Remove from custom holidays
+        if self.current_resources and self.current_resources.custom_holidays:
+            if date_str in self.current_resources.custom_holidays:
+                self.current_resources.custom_holidays.remove(date_str)
+        
+        # Update display and emit signal
+        self.update_holiday_displays()
+        self.resources_changed.emit(self.current_resources)
+    
+    def get_current_resources(self) -> ResourceCapacity:
+        """Get the current resource configuration from the UI."""
+        # Get resources from table
+        resources_dict = {}
+        for row in range(self.resources_table.rowCount()):
+            name_item = self.resources_table.item(row, 0)
+            capacity_item = self.resources_table.item(row, 1)
+            
+            if name_item and capacity_item:
+                resource_name = name_item.text().strip()
+                try:
+                    capacity = int(capacity_item.text())
+                    if capacity < 0:
+                        capacity = 0
+                except ValueError:
+                    capacity = 0
+                
+                if resource_name:  # Only add if name is not empty
+                    resources_dict[resource_name] = capacity
+        
+        # Get custom holidays from the current resources (preserve them)
+        custom_holidays = []
+        if self.current_resources and self.current_resources.custom_holidays:
+            custom_holidays = self.current_resources.custom_holidays.copy()
+        
+        # Get legacy holidays for backward compatibility
+        public_holidays = []
+        if self.current_resources and self.current_resources.public_holidays:
+            public_holidays = self.current_resources.public_holidays.copy()
+        
+        # Create ResourceCapacity with the new format
+        resource_capacity = ResourceCapacity(
+            resources=resources_dict,
+            slots_per_day=4,
+            public_holidays=public_holidays,  # Legacy field
+            custom_holidays=custom_holidays   # New field
+        )
+        
+        return resource_capacity
     
     def reset_to_defaults(self):
         """Reset to default resource configuration."""

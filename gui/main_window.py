@@ -162,6 +162,7 @@ class MainWindow(QMainWindow):
         # Tab signals
         self.resources_tab.resources_changed.connect(self.on_resources_changed)
         self.dashboard_tab.analysis_requested.connect(self.on_analysis_requested)
+        self.plan_tab.plan_changed.connect(self.on_plan_changed)
         
         # Internal signals
         self.project_changed.connect(self.on_project_changed)
@@ -418,6 +419,10 @@ class MainWindow(QMainWindow):
         """Handle resource configuration changes."""
         if self.current_project:
             self.current_project.current_resources = resources
+            
+            # Update Plan tab to reflect new working days calculation
+            self.plan_tab.update_display()
+            
             # Save resources to project directory
             try:
                 project_resources_path = self.current_project.project_dir / "resources.yml"
@@ -517,3 +522,15 @@ class MainWindow(QMainWindow):
         
         # Update status bar
         self.status_bar.showMessage(f"Project duplicated successfully: {duplicated_project.name}")
+    
+    def on_plan_changed(self):
+        """Handle plan changes from the plan tab."""
+        if self.current_project:
+            # Update project tree to reflect changes
+            self.project_tree.update_project(self.current_project)
+            
+            # Update other tabs that might be affected
+            self.resources_tab.set_project(self.current_project)
+            
+            # Update status bar
+            self.status_bar.showMessage(f"Plan modified: {self.current_project.name}")

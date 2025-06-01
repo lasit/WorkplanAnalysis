@@ -20,10 +20,13 @@ class WorkplanSolver:
         # Constants from specification
         self.SLOTS_PER_DAY = 4
         self.HOURS_PER_SLOT = 2
-        self.TOTAL_DAYS = 60
-        self.TOTAL_SLOTS = self.TOTAL_DAYS * self.SLOTS_PER_DAY  # 240 slots
         
-        # Role names mapping
+        # Dynamic values set per project
+        self.TOTAL_DAYS = 60  # Default fallback
+        self.TOTAL_SLOTS = 240  # Default fallback
+        self.working_days = []  # Actual working days for the quarter
+        
+        # Role names mapping (will be dynamic based on project resources)
         self.ROLES = ["RangerCoordinator", "SeniorRanger", "Ranger"]
     
     def analyze_project(self, project: Project, time_limit_seconds: int = 30) -> AnalysisResult:
@@ -40,8 +43,17 @@ class WorkplanSolver:
         start_time = time.time()
         
         try:
-            # Expand activities into occurrences
-            occurrences = self._expand_activities(project.activities)
+            # Set up quarter-based planning horizon
+            self._setup_planning_horizon(project)
+            
+            # Get valid activities for the planning quarter
+            valid_activities, excluded_activities = project.get_valid_activities()
+            
+            if excluded_activities:
+                print(f"Note: {len(excluded_activities)} activities excluded (wrong quarter)")
+            
+            # Expand valid activities into occurrences
+            occurrences = self._expand_activities(valid_activities)
             
             # Create CP-SAT model
             self.model = cp_model.CpModel()
@@ -319,3 +331,25 @@ class WorkplanSolver:
                     break
         
         return schedule
+    
+    def _setup_planning_horizon(self, project: Project):
+        """Set up the planning horizon based on the project's quarter."""
+        if project.planning_quarter:
+            try:
+                quarter_info = project.get_quarter_info()
+                if quarter_info and "working_days" in quarter_info:
+                    self.TOTAL_DAYS = quarter_info["working_days"]
+                    self.TOTAL_SLOTS = quarter_info["total_slots"]
+                    self.working_days = quarter_info["working_days_list"]
+                    
+                    print(f"Using quarter-based planning: {project.planning_quarter}")
+                    print(f"Working days: {self.TOTAL_DAYS}, Total slots: {self.TOTAL_SLOTS}")
+                    return
+            except Exception as e:
+                print(f"Warning: Could not use quarter-based planning: {e}")
+        
+        # Fallback to default values
+        print("Using default 60-day planning horizon")
+        self.TOTAL_DAYS = 60
+        self.TOTAL_SLOTS = 240
+        self.working_days = []

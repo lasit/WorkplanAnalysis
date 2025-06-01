@@ -2,29 +2,81 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime, date, timedelta
 from pathlib import Path
+import pytz
 
 
 @dataclass
 class Activity:
-    """Represents a single activity from the workplan CSV."""
+    """Represents a single activity from the workplan CSV with flexible resource requirements."""
     activity_id: str
     name: str
     quarter: str
     frequency: int
     duration: float  # 0.25, 0.5, or 1.0 (quarter-day, half-day, full-day)
-    ranger_coordinator: int
-    senior_ranger: int
-    ranger: int
+    resource_requirements: Dict[str, int] = field(default_factory=dict)  # resource_name -> quantity
     
     def __post_init__(self):
-        """Validate activity data after initialization."""
+        """Initialize with default resources if empty and validate data."""
+        if not self.resource_requirements:
+            # Default to the original three resource types for backward compatibility
+            self.resource_requirements = {
+                "RangerCoordinator": getattr(self, 'ranger_coordinator', 0),
+                "SeniorRanger": getattr(self, 'senior_ranger', 0),
+                "Ranger": getattr(self, 'ranger', 0)
+            }
+        
         if self.duration not in [0.25, 0.5, 1.0]:
             raise ValueError(f"Invalid duration {self.duration}. Must be 0.25, 0.5, or 1.0")
         if self.frequency < 1:
             raise ValueError(f"Invalid frequency {self.frequency}. Must be >= 1")
+        if any(req < 0 for req in self.resource_requirements.values()):
+            raise ValueError("All resource requirements must be non-negative")
+    
+    # Backward compatibility properties
+    @property
+    def ranger_coordinator(self) -> int:
+        return self.resource_requirements.get("RangerCoordinator", 0)
+    
+    @ranger_coordinator.setter
+    def ranger_coordinator(self, value: int):
+        self.resource_requirements["RangerCoordinator"] = value
+    
+    @property
+    def senior_ranger(self) -> int:
+        return self.resource_requirements.get("SeniorRanger", 0)
+    
+    @senior_ranger.setter
+    def senior_ranger(self, value: int):
+        self.resource_requirements["SeniorRanger"] = value
+    
+    @property
+    def ranger(self) -> int:
+        return self.resource_requirements.get("Ranger", 0)
+    
+    @ranger.setter
+    def ranger(self, value: int):
+        self.resource_requirements["Ranger"] = value
+    
+    def get_resource_requirement(self, resource_name: str) -> int:
+        """Get requirement for a specific resource."""
+        return self.resource_requirements.get(resource_name, 0)
+    
+    def set_resource_requirement(self, resource_name: str, quantity: int):
+        """Set requirement for a specific resource."""
+        if quantity < 0:
+            raise ValueError("Resource requirement must be non-negative")
+        if quantity == 0:
+            # Remove resource if quantity is 0
+            self.resource_requirements.pop(resource_name, None)
+        else:
+            self.resource_requirements[resource_name] = quantity
+    
+    def get_all_resource_requirements(self) -> Dict[str, int]:
+        """Get all resource requirements."""
+        return self.resource_requirements.copy()
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -34,6 +86,8 @@ class Activity:
             "quarter": self.quarter,
             "frequency": self.frequency,
             "duration": self.duration,
+            "resource_requirements": self.resource_requirements,
+            # Keep backward compatibility fields
             "ranger_coordinator": self.ranger_coordinator,
             "senior_ranger": self.senior_ranger,
             "ranger": self.ranger
@@ -42,16 +96,27 @@ class Activity:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Activity':
         """Create Activity from dictionary."""
-        return cls(
+        # Handle both new format (with resource_requirements) and old format (individual fields)
+        if "resource_requirements" in data:
+            resource_requirements = data["resource_requirements"]
+        else:
+            # Backward compatibility: convert old format to new
+            resource_requirements = {
+                "RangerCoordinator": data.get("ranger_coordinator", 0),
+                "SeniorRanger": data.get("senior_ranger", 0),
+                "Ranger": data.get("ranger", 0)
+            }
+        
+        activity = cls(
             activity_id=data["activity_id"],
             name=data["name"],
             quarter=data["quarter"],
             frequency=data["frequency"],
             duration=data["duration"],
-            ranger_coordinator=data["ranger_coordinator"],
-            senior_ranger=data["senior_ranger"],
-            ranger=data["ranger"]
+            resource_requirements=resource_requirements
         )
+        
+        return activity
 
 
 @dataclass
@@ -59,7 +124,8 @@ class ResourceCapacity:
     """Represents resource capacity configuration with flexible resource types."""
     resources: Dict[str, int] = field(default_factory=dict)  # resource_name -> capacity
     slots_per_day: int = 4
-    public_holidays: List[str] = field(default_factory=list)
+    public_holidays: List[str] = field(default_factory=list)  # Legacy field for backward compatibility
+    custom_holidays: List[str] = field(default_factory=list)  # User-added organization holidays
     
     def __post_init__(self):
         """Initialize with default resources if empty and validate data."""
@@ -132,6 +198,7 @@ class ResourceCapacity:
             "resources": self.resources,
             "slots_per_day": self.slots_per_day,
             "public_holidays": self.public_holidays,
+            "custom_holidays": self.custom_holidays,
             # Keep backward compatibility fields
             "ranger_coordinator": self.ranger_coordinator,
             "senior_ranger": self.senior_ranger,
@@ -155,7 +222,8 @@ class ResourceCapacity:
         return cls(
             resources=resources,
             slots_per_day=data.get("slots_per_day", 4),
-            public_holidays=data.get("public_holidays", [])
+            public_holidays=data.get("public_holidays", []),
+            custom_holidays=data.get("custom_holidays", [])
         )
 
 
@@ -206,11 +274,16 @@ class Project:
     activities: List[Activity] = field(default_factory=list)
     analyses: List[AnalysisResult] = field(default_factory=list)
     current_resources: Optional[ResourceCapacity] = None
+    planning_quarter: Optional[str] = None  # e.g., "2025-Q3"
     
     def __post_init__(self):
-        """Initialize project with default resources if not provided."""
+        """Initialize project with default resources and quarter if not provided."""
         if self.current_resources is None:
             self.current_resources = ResourceCapacity()
+        
+        # Auto-detect planning quarter from activities if not set
+        if self.planning_quarter is None and self.activities:
+            self.planning_quarter = self._detect_planning_quarter()
     
     @property
     def project_dir(self) -> Path:
@@ -243,6 +316,7 @@ class Project:
             "name": self.name,
             "workplan_path": str(self.workplan_path),
             "created_at": datetime.now().isoformat(),
+            "planning_quarter": self.planning_quarter,
             "activities": [activity.to_dict() for activity in self.activities],
             "current_resources": self.current_resources.to_dict() if self.current_resources else None,
             "analyses": [analysis.to_dict() for analysis in self.analyses]
@@ -283,7 +357,8 @@ class Project:
                 workplan_path=Path(data["workplan_path"]),
                 activities=activities,
                 analyses=analyses,
-                current_resources=current_resources
+                current_resources=current_resources,
+                planning_quarter=data.get("planning_quarter")
             )
             
             return project
@@ -359,6 +434,210 @@ class Project:
         duplicated_project.save_project()
         
         return duplicated_project
+    
+    def _detect_planning_quarter(self) -> Optional[str]:
+        """Auto-detect planning quarter from activities (most common quarter)."""
+        if not self.activities:
+            return None
+        
+        # Count quarters
+        quarter_counts = {}
+        for activity in self.activities:
+            quarter = activity.quarter
+            quarter_counts[quarter] = quarter_counts.get(quarter, 0) + 1
+        
+        # Return most common quarter
+        return max(quarter_counts, key=quarter_counts.get)
+    
+    def parse_financial_quarter(self, quarter_str: str) -> Tuple[date, date]:
+        """Parse financial quarter string to start and end dates.
+        
+        Australian Financial Year Quarters:
+        Q1: July, August, September
+        Q2: October, November, December
+        Q3: January, February, March
+        Q4: April, May, June
+        
+        Args:
+            quarter_str: Quarter string like "2025-Q3"
+            
+        Returns:
+            Tuple of (start_date, end_date)
+        """
+        try:
+            year_str, quarter_str = quarter_str.split('-Q')
+            year = int(year_str)
+            quarter = int(quarter_str)
+            
+            if quarter == 1:  # Jul-Sep (previous calendar year)
+                start_date = date(year - 1, 7, 1)
+                end_date = date(year - 1, 9, 30)
+            elif quarter == 2:  # Oct-Dec (previous calendar year)
+                start_date = date(year - 1, 10, 1)
+                end_date = date(year - 1, 12, 31)
+            elif quarter == 3:  # Jan-Mar (current calendar year)
+                start_date = date(year, 1, 1)
+                end_date = date(year, 3, 31)
+            elif quarter == 4:  # Apr-Jun (current calendar year)
+                start_date = date(year, 4, 1)
+                end_date = date(year, 6, 30)
+            else:
+                raise ValueError(f"Invalid quarter: {quarter}. Must be 1, 2, 3, or 4")
+            
+            return start_date, end_date
+            
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid quarter format '{quarter_str}'. Expected format: 'YYYY-QN' (e.g., '2025-Q3')")
+    
+    def get_auto_holidays_for_quarter(self) -> List[Tuple[str, str]]:
+        """Get auto-detected NT holidays for the planning quarter.
+        
+        Returns:
+            List of tuples (date_string, holiday_name)
+        """
+        if not self.planning_quarter:
+            return []
+        
+        try:
+            from .nt_holidays import get_nt_holidays_for_quarter
+            return get_nt_holidays_for_quarter(self.planning_quarter)
+        except Exception:
+            return []
+    
+    def get_all_holidays_for_quarter(self) -> List[str]:
+        """Get all holidays (auto + custom) for the planning quarter.
+        
+        Returns:
+            List of holiday date strings in YYYY-MM-DD format
+        """
+        all_holidays = set()
+        
+        # Add auto-detected NT holidays
+        auto_holidays = self.get_auto_holidays_for_quarter()
+        for date_str, _ in auto_holidays:
+            all_holidays.add(date_str)
+        
+        # Add custom organization holidays
+        if self.current_resources and self.current_resources.custom_holidays:
+            all_holidays.update(self.current_resources.custom_holidays)
+        
+        # Add legacy public holidays for backward compatibility
+        if self.current_resources and self.current_resources.public_holidays:
+            all_holidays.update(self.current_resources.public_holidays)
+        
+        return sorted(list(all_holidays))
+    
+    def calculate_working_days(self, start_date: date, end_date: date, additional_holidays: List[str] = None) -> List[date]:
+        """Calculate working days (Mon-Fri) excluding all public holidays.
+        
+        Args:
+            start_date: Start date
+            end_date: End date
+            additional_holidays: Additional holidays in YYYY-MM-DD format
+            
+        Returns:
+            List of working days
+        """
+        working_days = []
+        current = start_date
+        
+        # Get all holidays for the period
+        all_holidays = set()
+        
+        # Add auto-detected NT holidays
+        try:
+            from .nt_holidays import NTHolidays
+            nt_holiday_dates = NTHolidays.get_holiday_dates_in_period(start_date, end_date)
+            all_holidays.update(nt_holiday_dates)
+        except Exception:
+            pass  # Fall back to no NT holidays if import fails
+        
+        # Add custom organization holidays
+        if self.current_resources and self.current_resources.custom_holidays:
+            all_holidays.update(self.current_resources.custom_holidays)
+        
+        # Add legacy public holidays for backward compatibility
+        if self.current_resources and self.current_resources.public_holidays:
+            all_holidays.update(self.current_resources.public_holidays)
+        
+        # Add additional holidays
+        if additional_holidays:
+            all_holidays.update(additional_holidays)
+        
+        # Calculate working days
+        while current <= end_date:
+            # Check if it's a weekday (Monday=0 to Friday=4)
+            if current.weekday() < 5:
+                # Check if it's not a public holiday
+                date_str = current.strftime("%Y-%m-%d")
+                if date_str not in all_holidays:
+                    working_days.append(current)
+            
+            current += timedelta(days=1)
+        
+        return working_days
+    
+    def get_quarter_info(self) -> Dict[str, Any]:
+        """Get information about the planning quarter.
+        
+        Returns:
+            Dictionary with quarter information
+        """
+        if not self.planning_quarter:
+            return {}
+        
+        try:
+            start_date, end_date = self.parse_financial_quarter(self.planning_quarter)
+            working_days = self.calculate_working_days(start_date, end_date)
+            
+            # Convert to NT timezone for display
+            nt_tz = pytz.timezone('Australia/Darwin')
+            
+            return {
+                "quarter": self.planning_quarter,
+                "start_date": start_date,
+                "end_date": end_date,
+                "total_days": (end_date - start_date).days + 1,
+                "working_days": len(working_days),
+                "working_days_list": working_days,
+                "total_slots": len(working_days) * 4,
+                "timezone": "Australia/Darwin (NT)"
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def get_valid_activities(self) -> Tuple[List[Activity], List[Activity]]:
+        """Get activities that match the planning quarter and those that don't.
+        
+        Returns:
+            Tuple of (valid_activities, excluded_activities)
+        """
+        if not self.planning_quarter:
+            return self.activities, []
+        
+        valid_activities = []
+        excluded_activities = []
+        
+        for activity in self.activities:
+            if activity.quarter == self.planning_quarter:
+                valid_activities.append(activity)
+            else:
+                excluded_activities.append(activity)
+        
+        return valid_activities, excluded_activities
+    
+    def set_planning_quarter(self, quarter: str):
+        """Set the planning quarter for this project.
+        
+        Args:
+            quarter: Quarter string like "2025-Q3"
+        """
+        # Validate quarter format
+        try:
+            self.parse_financial_quarter(quarter)
+            self.planning_quarter = quarter
+        except ValueError as e:
+            raise ValueError(f"Invalid quarter format: {e}")
 
 
 @dataclass

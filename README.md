@@ -52,6 +52,18 @@ Workplan Analysis is a work-plan feasibility checker that evaluates whether a qu
 - Dashboard visualization
 - Analysis comparison capabilities
 
+✅ **Holiday Management System**
+- Automatic NT public holiday detection for any quarter
+- Calendar picker for adding organization holidays
+- Real-time working days calculation
+- Holiday persistence across app sessions
+
+✅ **Enhanced Plan Tab**
+- Working days display in workplan summary
+- Real-time updates when holidays change
+- Accurate Monday-Friday calculation minus all holidays
+- Quarter-specific holiday filtering
+
 ## Installation
 
 ### Prerequisites
@@ -129,8 +141,29 @@ For Windows users, simply double-click `start_app.bat` to launch the application
    - Ranger Coordinator
    - Senior Ranger
    - Ranger
-3. Add public holidays if needed
+3. Manage public holidays:
+   - **Auto-detected NT Holidays**: Automatically shows NT public holidays for the planning quarter
+   - **Organization Holidays**: Use the calendar picker to add custom holidays
 4. Click **Save Resource Configuration**
+
+### Managing Holidays
+
+**Automatic NT Holiday Detection:**
+- The system automatically detects Northern Territory public holidays for any planning quarter
+- Includes fixed holidays (New Year's Day, Australia Day, etc.) and variable holidays (Easter, Queen's Birthday)
+- No manual entry required for standard NT public holidays
+
+**Adding Organization Holidays:**
+1. In the Resources tab, click **"Add Holiday"** in the Organization Holidays section
+2. A calendar picker will open, restricted to your planning quarter
+3. Select the date and click **"Add Holiday"**
+4. The holiday is immediately saved and working days are recalculated
+
+**Working Days Calculation:**
+- Automatically calculates Monday-Friday working days for the quarter
+- Excludes weekends, NT public holidays, and organization holidays
+- Updates in real-time when holidays are added or removed
+- Displayed in Plan tab as "Working Days: 62 (90 total - weekends - holidays)"
 
 ### Sample Data
 

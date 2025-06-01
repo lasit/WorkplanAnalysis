@@ -31,15 +31,36 @@ class DataLoader:
         activities = []
         for index, row in df.iterrows():
             try:
+                # Build resource requirements from CSV columns
+                resource_requirements = {}
+                
+                # Handle standard resource columns
+                if 'RangerCoordinator' in row:
+                    resource_requirements['RangerCoordinator'] = int(row['RangerCoordinator'])
+                if 'SeniorRanger' in row:
+                    resource_requirements['SeniorRanger'] = int(row['SeniorRanger'])
+                if 'Ranger' in row:
+                    resource_requirements['Ranger'] = int(row['Ranger'])
+                
+                # Handle any additional resource columns
+                for col in df.columns:
+                    if col not in ['ActivityID', 'ActivityName', 'Quarter', 'Frequency', 'Duration', 
+                                   'RangerCoordinator', 'SeniorRanger', 'Ranger']:
+                        # This is a custom resource column
+                        try:
+                            value = int(row[col])
+                            if value > 0:
+                                resource_requirements[col] = value
+                        except (ValueError, TypeError):
+                            pass  # Skip invalid resource values
+                
                 activity = Activity(
                     activity_id=str(row['ActivityID']),
                     name=str(row['ActivityName']),
                     quarter=str(row['Quarter']),
                     frequency=int(row['Frequency']),
                     duration=float(row['Duration']),
-                    ranger_coordinator=int(row['RangerCoordinator']),
-                    senior_ranger=int(row['SeniorRanger']),
-                    ranger=int(row['Ranger'])
+                    resource_requirements=resource_requirements
                 )
                 activities.append(activity)
             except (ValueError, TypeError) as e:
@@ -60,12 +81,36 @@ class DataLoader:
             raise ValueError("YAML file must contain a dictionary")
         
         try:
+            # Build resources dictionary from YAML data
+            resources = {}
+            
+            # Handle standard resource types
+            if 'RangerCoordinator' in data:
+                resources['RangerCoordinator'] = data['RangerCoordinator']
+            if 'SeniorRanger' in data:
+                resources['SeniorRanger'] = data['SeniorRanger']
+            if 'Ranger' in data:
+                resources['Ranger'] = data['Ranger']
+            
+            # Handle any additional resource types
+            for key, value in data.items():
+                if key not in ['RangerCoordinator', 'SeniorRanger', 'Ranger', 'slots_per_day', 'public_holidays', 'custom_holidays']:
+                    if isinstance(value, int) and value >= 0:
+                        resources[key] = value
+            
+            # If no resources found, use defaults
+            if not resources:
+                resources = {
+                    'RangerCoordinator': 1,
+                    'SeniorRanger': 2,
+                    'Ranger': 5
+                }
+            
             return ResourceCapacity(
-                ranger_coordinator=data.get('RangerCoordinator', 1),
-                senior_ranger=data.get('SeniorRanger', 2),
-                ranger=data.get('Ranger', 5),
+                resources=resources,
                 slots_per_day=data.get('slots_per_day', 4),
-                public_holidays=data.get('public_holidays', [])
+                public_holidays=data.get('public_holidays', []),
+                custom_holidays=data.get('custom_holidays', [])
             )
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid resource data: {e}")
@@ -73,13 +118,19 @@ class DataLoader:
     @staticmethod
     def save_resources_yaml(resources: ResourceCapacity, file_path: Path) -> None:
         """Save resource capacity to YAML file."""
-        data = {
-            'RangerCoordinator': resources.ranger_coordinator,
-            'SeniorRanger': resources.senior_ranger,
-            'Ranger': resources.ranger,
-            'slots_per_day': resources.slots_per_day,
-            'public_holidays': resources.public_holidays
-        }
+        # Build data from the new dynamic structure
+        data = resources.get_all_resources().copy()  # Get all resource types
+        
+        # Add other fields
+        data['slots_per_day'] = resources.slots_per_day
+        
+        # Add legacy public holidays for backward compatibility
+        if resources.public_holidays:
+            data['public_holidays'] = resources.public_holidays
+        
+        # Add custom organization holidays
+        if resources.custom_holidays:
+            data['custom_holidays'] = resources.custom_holidays
         
         try:
             with open(file_path, 'w') as f:
@@ -122,11 +173,15 @@ class DataLoader:
             return {}
         
         total_occurrences = sum(a.frequency for a in activities)
-        total_demand = {
-            'RangerCoordinator': sum(a.ranger_coordinator * a.frequency for a in activities),
-            'SeniorRanger': sum(a.senior_ranger * a.frequency for a in activities),
-            'Ranger': sum(a.ranger * a.frequency for a in activities)
-        }
+        
+        # Calculate total demand for all resource types
+        total_demand = {}
+        for activity in activities:
+            requirements = activity.get_all_resource_requirements()
+            for resource_name, quantity in requirements.items():
+                if resource_name not in total_demand:
+                    total_demand[resource_name] = 0
+                total_demand[resource_name] += quantity * activity.frequency
         
         duration_breakdown = {}
         for activity in activities:
