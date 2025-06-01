@@ -27,7 +27,7 @@ class WorkplanSolver:
         self.working_days = []  # Actual working days for the quarter
         
         # Role names mapping (will be dynamic based on project resources)
-        self.ROLES = ["RangerCoordinator", "SeniorRanger", "Ranger"]
+        self.ROLES = ["RangerCoordinator", "SeniorRanger", "Ranger"]  # Default fallback
     
     def analyze_project(self, project: Project, time_limit_seconds: int = 30) -> AnalysisResult:
         """
@@ -196,12 +196,9 @@ class WorkplanSolver:
     
     def _add_capacity_constraints(self, occurrences: List[Occurrence], resources: ResourceCapacity):
         """Add resource capacity constraints."""
-        # Get capacity for each role
-        capacities = {
-            "RangerCoordinator": resources.ranger_coordinator,
-            "SeniorRanger": resources.senior_ranger,
-            "Ranger": resources.ranger
-        }
+        # Get all resource types from the project
+        all_resources = resources.get_all_resources()
+        self.ROLES = list(all_resources.keys())  # Update roles dynamically
         
         # For each slot and each role, ensure capacity is not exceeded
         for slot in range(self.TOTAL_SLOTS):
@@ -222,7 +219,7 @@ class WorkplanSolver:
                 role_demand = []
                 
                 for i, occurrence in enumerate(occurrences):
-                    demand = occurrence.resource_demands.get(role, 0)
+                    demand = occurrence.activity.get_resource_requirement(role)
                     if demand > 0:
                         duration_slots = occurrence.duration_slots
                         
@@ -232,7 +229,8 @@ class WorkplanSolver:
                                 role_demand.append(self.variables[i][start_slot] * demand)
                 
                 if role_demand:
-                    constraint = self.model.Add(sum(role_demand) <= capacities[role])
+                    capacity = all_resources.get(role, 0)
+                    constraint = self.model.Add(sum(role_demand) <= capacity)
                     self.constraints.append(constraint)
     
     def _is_public_holiday(self, slot: int, public_holidays: List[str]) -> bool:
@@ -249,26 +247,27 @@ class WorkplanSolver:
     
     def _calculate_utilization(self, occurrences: List[Occurrence], resources: ResourceCapacity) -> Dict[str, float]:
         """Calculate resource utilization percentages."""
+        # Get all resource types dynamically
+        all_resources = resources.get_all_resources()
+        
         # Total available capacity over the planning horizon
-        total_capacity = {
-            "RangerCoordinator": resources.ranger_coordinator * self.TOTAL_SLOTS,
-            "SeniorRanger": resources.senior_ranger * self.TOTAL_SLOTS,
-            "Ranger": resources.ranger * self.TOTAL_SLOTS
-        }
+        total_capacity = {}
+        for role, capacity in all_resources.items():
+            total_capacity[role] = capacity * self.TOTAL_SLOTS
         
         # Total demand (sum of all occurrence demands)
-        total_demand = {"RangerCoordinator": 0, "SeniorRanger": 0, "Ranger": 0}
+        total_demand = {role: 0 for role in all_resources.keys()}
         
         for occurrence in occurrences:
             duration_slots = occurrence.duration_slots
-            demands = occurrence.resource_demands
             
-            for role in self.ROLES:
-                total_demand[role] += demands.get(role, 0) * duration_slots
+            for role in all_resources.keys():
+                demand = occurrence.activity.get_resource_requirement(role)
+                total_demand[role] += demand * duration_slots
         
         # Calculate utilization percentages
         utilization = {}
-        for role in self.ROLES:
+        for role in all_resources.keys():
             if total_capacity[role] > 0:
                 utilization[role] = (total_demand[role] / total_capacity[role]) * 100.0
             else:
@@ -278,22 +277,17 @@ class WorkplanSolver:
     
     def _analyze_overloads(self, occurrences: List[Occurrence], resources: ResourceCapacity) -> Tuple[List[Dict[str, Any]], Dict[str, float]]:
         """Analyze capacity overloads when the problem is infeasible."""
-        # For now, return basic overload analysis
-        # In a full implementation, this would solve a relaxed model with slack variables
-        
+        # Calculate utilization for all resource types
         utilization = self._calculate_utilization(occurrences, resources)
         
+        # Get all resource types dynamically
+        all_resources = resources.get_all_resources()
+        
         overloads = []
-        for role in self.ROLES:
-            if utilization[role] > 100:
+        for role, capacity in all_resources.items():
+            if utilization.get(role, 0) > 100:
                 # Simple overload detection - in reality this would be more sophisticated
                 overload_amount = utilization[role] - 100
-                if role == "RangerCoordinator":
-                    capacity = resources.ranger_coordinator
-                elif role == "SeniorRanger":
-                    capacity = resources.senior_ranger
-                else:  # Ranger
-                    capacity = resources.ranger
                 extra_needed = int((overload_amount / 100) * capacity) + 1
                 
                 overloads.append({

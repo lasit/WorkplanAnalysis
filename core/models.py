@@ -655,8 +655,4 @@ class Occurrence:
     @property
     def resource_demands(self) -> Dict[str, int]:
         """Get resource demands for this occurrence."""
-        return {
-            "RangerCoordinator": self.activity.ranger_coordinator,
-            "SeniorRanger": self.activity.senior_ranger,
-            "Ranger": self.activity.ranger
-        }
+        return self.activity.get_all_resource_requirements()
