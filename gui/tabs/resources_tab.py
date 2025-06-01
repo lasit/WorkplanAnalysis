@@ -1,13 +1,14 @@
-"""Resources tab for editing resource capacity configuration."""
+"""Resources tab for editing resource capacity configuration with dynamic resource types."""
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
     QPushButton, QSpinBox, QGroupBox, QListWidget, QListWidgetItem,
-    QMessageBox, QDateEdit, QFrame
+    QMessageBox, QDateEdit, QFrame, QInputDialog, QScrollArea,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from PyQt6.QtGui import QFont
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 from core.models import Project, ResourceCapacity
@@ -44,71 +45,55 @@ class ResourcesTab(QWidget):
         layout.addStretch()
     
     def setup_capacity_section(self, parent_layout):
-        """Set up the resource capacity editing section."""
+        """Set up the resource capacity editing section with dynamic resource types."""
         capacity_group = QGroupBox("Resource Capacity")
-        capacity_layout = QGridLayout(capacity_group)
+        capacity_layout = QVBoxLayout(capacity_group)
         
         # Title and description
-        title_label = QLabel("Staff Available per Time Slot")
+        title_label = QLabel("Resource Types and Capacity")
         title_font = QFont()
         title_font.setBold(True)
         title_label.setFont(title_font)
-        capacity_layout.addWidget(title_label, 0, 0, 1, 3)
+        capacity_layout.addWidget(title_label)
         
-        desc_label = QLabel("Configure how many staff of each role are available simultaneously.")
+        desc_label = QLabel("Configure resource types and how many are available per time slot.")
         desc_label.setStyleSheet("color: gray;")
-        capacity_layout.addWidget(desc_label, 1, 0, 1, 3)
+        capacity_layout.addWidget(desc_label)
         
-        # Add some spacing
-        capacity_layout.addWidget(QFrame(), 2, 0, 1, 3)
+        # Resource table
+        table_layout = QVBoxLayout()
         
-        # Resource capacity controls
-        row = 3
+        # Table for resources
+        self.resources_table = QTableWidget()
+        self.resources_table.setColumnCount(2)
+        self.resources_table.setHorizontalHeaderLabels(["Resource Type", "Capacity"])
+        self.resources_table.horizontalHeader().setStretchLastSection(True)
+        self.resources_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.resources_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.resources_table.setMaximumHeight(200)
+        self.resources_table.itemChanged.connect(self.on_table_item_changed)
+        table_layout.addWidget(self.resources_table)
         
-        # Ranger Coordinator
-        capacity_layout.addWidget(QLabel("Ranger Coordinator:"), row, 0)
-        self.rc_spinbox = QSpinBox()
-        self.rc_spinbox.setRange(0, 10)
-        self.rc_spinbox.setValue(1)
-        self.rc_spinbox.valueChanged.connect(self.on_capacity_changed)
-        capacity_layout.addWidget(self.rc_spinbox, row, 1)
-        capacity_layout.addWidget(QLabel("staff"), row, 2)
+        # Buttons for managing resources
+        buttons_layout = QHBoxLayout()
         
-        row += 1
+        self.add_resource_button = QPushButton("Add Resource Type")
+        self.add_resource_button.clicked.connect(self.add_resource_type)
+        buttons_layout.addWidget(self.add_resource_button)
         
-        # Senior Ranger
-        capacity_layout.addWidget(QLabel("Senior Ranger:"), row, 0)
-        self.sr_spinbox = QSpinBox()
-        self.sr_spinbox.setRange(0, 20)
-        self.sr_spinbox.setValue(2)
-        self.sr_spinbox.valueChanged.connect(self.on_capacity_changed)
-        capacity_layout.addWidget(self.sr_spinbox, row, 1)
-        capacity_layout.addWidget(QLabel("staff"), row, 2)
+        self.remove_resource_button = QPushButton("Remove Selected")
+        self.remove_resource_button.clicked.connect(self.remove_resource_type)
+        buttons_layout.addWidget(self.remove_resource_button)
         
-        row += 1
+        buttons_layout.addStretch()
         
-        # Ranger
-        capacity_layout.addWidget(QLabel("Ranger:"), row, 0)
-        self.ranger_spinbox = QSpinBox()
-        self.ranger_spinbox.setRange(0, 50)
-        self.ranger_spinbox.setValue(5)
-        self.ranger_spinbox.valueChanged.connect(self.on_capacity_changed)
-        capacity_layout.addWidget(self.ranger_spinbox, row, 1)
-        capacity_layout.addWidget(QLabel("staff"), row, 2)
+        # Info about slots per day
+        info_label = QLabel("Slots per day: 4 (quarter-day slots, fixed)")
+        info_label.setStyleSheet("font-weight: bold; color: #666;")
+        buttons_layout.addWidget(info_label)
         
-        row += 1
-        
-        # Slots per day (read-only)
-        capacity_layout.addWidget(QLabel("Slots per day:"), row, 0)
-        self.slots_label = QLabel("4")
-        self.slots_label.setStyleSheet("font-weight: bold;")
-        capacity_layout.addWidget(self.slots_label, row, 1)
-        capacity_layout.addWidget(QLabel("(quarter-day slots, fixed)"), row, 2)
-        
-        # Set column stretches
-        capacity_layout.setColumnStretch(0, 1)
-        capacity_layout.setColumnStretch(1, 0)
-        capacity_layout.setColumnStretch(2, 1)
+        table_layout.addLayout(buttons_layout)
+        capacity_layout.addLayout(table_layout)
         
         parent_layout.addWidget(capacity_group)
     
@@ -192,10 +177,8 @@ class ResourcesTab(QWidget):
         """Set the resource configuration to display."""
         self.current_resources = resources
         
-        # Update capacity controls
-        self.rc_spinbox.setValue(resources.ranger_coordinator)
-        self.sr_spinbox.setValue(resources.senior_ranger)
-        self.ranger_spinbox.setValue(resources.ranger)
+        # Update resources table
+        self.populate_resources_table(resources.get_all_resources())
         
         # Update holidays list
         self.holidays_list.clear()
@@ -203,20 +186,53 @@ class ResourcesTab(QWidget):
             item = QListWidgetItem(holiday)
             self.holidays_list.addItem(item)
     
+    def populate_resources_table(self, resources_dict: Dict[str, int]):
+        """Populate the resources table with resource data."""
+        self.resources_table.setRowCount(len(resources_dict))
+        
+        for row, (resource_name, capacity) in enumerate(resources_dict.items()):
+            # Resource name (editable)
+            name_item = QTableWidgetItem(resource_name)
+            self.resources_table.setItem(row, 0, name_item)
+            
+            # Capacity (editable)
+            capacity_item = QTableWidgetItem(str(capacity))
+            self.resources_table.setItem(row, 1, capacity_item)
+    
     def get_current_resources(self) -> ResourceCapacity:
         """Get the current resource configuration from the UI."""
+        # Get resources from table
+        resources_dict = {}
+        for row in range(self.resources_table.rowCount()):
+            name_item = self.resources_table.item(row, 0)
+            capacity_item = self.resources_table.item(row, 1)
+            
+            if name_item and capacity_item:
+                resource_name = name_item.text().strip()
+                try:
+                    capacity = int(capacity_item.text())
+                    if capacity < 0:
+                        capacity = 0
+                except ValueError:
+                    capacity = 0
+                
+                if resource_name:  # Only add if name is not empty
+                    resources_dict[resource_name] = capacity
+        
+        # Get holidays
         holidays = []
         for i in range(self.holidays_list.count()):
             item = self.holidays_list.item(i)
             holidays.append(item.text())
         
-        return ResourceCapacity(
-            ranger_coordinator=self.rc_spinbox.value(),
-            senior_ranger=self.sr_spinbox.value(),
-            ranger=self.ranger_spinbox.value(),
-            slots_per_day=4,  # Fixed value
+        # Create ResourceCapacity with the new format
+        resource_capacity = ResourceCapacity(
+            resources=resources_dict,
+            slots_per_day=4,
             public_holidays=holidays
         )
+        
+        return resource_capacity
     
     def on_capacity_changed(self):
         """Handle changes to capacity values."""
@@ -225,6 +241,86 @@ class ResourcesTab(QWidget):
         
         # Emit signal for immediate feedback
         self.resources_changed.emit(self.current_resources)
+    
+    def on_table_item_changed(self, item):
+        """Handle changes to table items."""
+        # Validate capacity values
+        if item.column() == 1:  # Capacity column
+            try:
+                value = int(item.text())
+                if value < 0:
+                    item.setText("0")
+            except ValueError:
+                item.setText("0")
+        
+        # Update resources
+        self.on_capacity_changed()
+    
+    def add_resource_type(self):
+        """Add a new resource type."""
+        resource_name, ok = QInputDialog.getText(
+            self,
+            "Add Resource Type",
+            "Enter resource type name:",
+            text="New Resource"
+        )
+        
+        if not ok or not resource_name.strip():
+            return
+        
+        resource_name = resource_name.strip()
+        
+        # Check for duplicates
+        for row in range(self.resources_table.rowCount()):
+            existing_name = self.resources_table.item(row, 0)
+            if existing_name and existing_name.text() == resource_name:
+                QMessageBox.information(
+                    self,
+                    "Duplicate Resource",
+                    f"Resource type '{resource_name}' already exists."
+                )
+                return
+        
+        # Add new row
+        row_count = self.resources_table.rowCount()
+        self.resources_table.setRowCount(row_count + 1)
+        
+        # Set items
+        name_item = QTableWidgetItem(resource_name)
+        capacity_item = QTableWidgetItem("0")
+        
+        self.resources_table.setItem(row_count, 0, name_item)
+        self.resources_table.setItem(row_count, 1, capacity_item)
+        
+        # Update resources
+        self.on_capacity_changed()
+    
+    def remove_resource_type(self):
+        """Remove the selected resource type."""
+        current_row = self.resources_table.currentRow()
+        if current_row < 0:
+            QMessageBox.information(
+                self,
+                "No Selection",
+                "Please select a resource type to remove."
+            )
+            return
+        
+        # Get resource name for confirmation
+        name_item = self.resources_table.item(current_row, 0)
+        resource_name = name_item.text() if name_item else "Unknown"
+        
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self,
+            "Remove Resource Type",
+            f"Are you sure you want to remove '{resource_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.resources_table.removeRow(current_row)
+            self.on_capacity_changed()
     
     def add_holiday(self):
         """Add a new public holiday."""

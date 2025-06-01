@@ -56,37 +56,104 @@ class Activity:
 
 @dataclass
 class ResourceCapacity:
-    """Represents resource capacity configuration."""
-    ranger_coordinator: int = 1
-    senior_ranger: int = 2
-    ranger: int = 5
+    """Represents resource capacity configuration with flexible resource types."""
+    resources: Dict[str, int] = field(default_factory=dict)  # resource_name -> capacity
     slots_per_day: int = 4
     public_holidays: List[str] = field(default_factory=list)
     
     def __post_init__(self):
-        """Validate resource capacity data."""
+        """Initialize with default resources if empty and validate data."""
+        if not self.resources:
+            # Default to the original three resource types for backward compatibility
+            self.resources = {
+                "RangerCoordinator": 1,
+                "SeniorRanger": 2,
+                "Ranger": 5
+            }
+        
         if self.slots_per_day != 4:
             raise ValueError("slots_per_day must be 4 (quarter-day slots)")
-        if any(capacity < 0 for capacity in [self.ranger_coordinator, self.senior_ranger, self.ranger]):
+        if any(capacity < 0 for capacity in self.resources.values()):
             raise ValueError("All capacity values must be non-negative")
+    
+    def add_resource(self, resource_name: str, capacity: int = 0):
+        """Add a new resource type."""
+        if capacity < 0:
+            raise ValueError("Capacity must be non-negative")
+        self.resources[resource_name] = capacity
+    
+    def remove_resource(self, resource_name: str):
+        """Remove a resource type."""
+        if resource_name in self.resources:
+            del self.resources[resource_name]
+    
+    def get_resource_capacity(self, resource_name: str) -> int:
+        """Get capacity for a specific resource."""
+        return self.resources.get(resource_name, 0)
+    
+    def set_resource_capacity(self, resource_name: str, capacity: int):
+        """Set capacity for a specific resource."""
+        if capacity < 0:
+            raise ValueError("Capacity must be non-negative")
+        self.resources[resource_name] = capacity
+    
+    def get_all_resources(self) -> Dict[str, int]:
+        """Get all resources and their capacities."""
+        return self.resources.copy()
+    
+    # Backward compatibility properties
+    @property
+    def ranger_coordinator(self) -> int:
+        return self.resources.get("RangerCoordinator", 0)
+    
+    @ranger_coordinator.setter
+    def ranger_coordinator(self, value: int):
+        self.resources["RangerCoordinator"] = value
+    
+    @property
+    def senior_ranger(self) -> int:
+        return self.resources.get("SeniorRanger", 0)
+    
+    @senior_ranger.setter
+    def senior_ranger(self, value: int):
+        self.resources["SeniorRanger"] = value
+    
+    @property
+    def ranger(self) -> int:
+        return self.resources.get("Ranger", 0)
+    
+    @ranger.setter
+    def ranger(self, value: int):
+        self.resources["Ranger"] = value
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
+            "resources": self.resources,
+            "slots_per_day": self.slots_per_day,
+            "public_holidays": self.public_holidays,
+            # Keep backward compatibility fields
             "ranger_coordinator": self.ranger_coordinator,
             "senior_ranger": self.senior_ranger,
-            "ranger": self.ranger,
-            "slots_per_day": self.slots_per_day,
-            "public_holidays": self.public_holidays
+            "ranger": self.ranger
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ResourceCapacity':
         """Create ResourceCapacity from dictionary."""
+        # Handle both new format (with resources dict) and old format (individual fields)
+        if "resources" in data:
+            resources = data["resources"]
+        else:
+            # Backward compatibility: convert old format to new
+            resources = {
+                "RangerCoordinator": data.get("ranger_coordinator", 1),
+                "SeniorRanger": data.get("senior_ranger", 2),
+                "Ranger": data.get("ranger", 5)
+            }
+        
         return cls(
-            ranger_coordinator=data.get("ranger_coordinator", 1),
-            senior_ranger=data.get("senior_ranger", 2),
-            ranger=data.get("ranger", 5),
+            resources=resources,
             slots_per_day=data.get("slots_per_day", 4),
             public_holidays=data.get("public_holidays", [])
         )
